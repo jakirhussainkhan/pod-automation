@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Dashboard</h2>{% endblock %}
+
+{% block content %}
+<div id="dashboard-error" class="hidden mb-4 text-sm font-medium text-red-700 dark:text-red-200 bg-red-50/80 dark:bg-red-900/30 backdrop-blur-md border border-red-200 dark:border-red-800 rounded-lg px-4 py-3" role="alert">
+  <span id="dashboard-error-text"></span>
+  <button id="dashboard-retry" type="button" class="btn btn-secondary btn-sm ml-3">Retry</button>
+</div>
+
+<div id="dashboard-loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8" aria-label="Loading statistics">
+  <div class="skeleton h-24"></div>
+  <div class="skeleton h-24"></div>
+  <div class="skeleton h-24"></div>
+  <div class="skeleton h-24"></div>
+  <div class="skeleton h-24"></div>
+  <div class="skeleton h-24"></div>
+</div>
+
+<div id="dashboard-content" class="hidden">
+  <div id="fb-not-configured" class="hidden mb-4 text-sm font-medium text-amber-800 dark:text-amber-200 bg-amber-50/80 dark:bg-amber-900/30 backdrop-blur-md border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3" role="status">
+    Facebook is not configured. Add a Page ID and access token in .env to enable live publishing.
+  </div>
+  <div id="token-warning-banner" class="hidden mb-4 text-sm font-medium rounded-lg px-4 py-3" role="alert"></div>
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">System Health</h3>
+      <button id="health-refresh-btn" type="button" class="btn btn-secondary btn-sm ml-auto">Refresh</button>
+    </div>
+    <div id="health-pills" class="flex flex-wrap gap-2"></div>
+  </div>
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Accounts Overview</h3>
+      <a href="/accounts" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Manage →</a>
+    </div>
+    <div id="accounts-overview" class="space-y-3"></div>
+    <p id="accounts-overview-empty" class="hidden text-sm text-gray-500 dark:text-slate-400">No accounts yet — <a href="/accounts" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">add your first account</a>.</p>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">Total Products</p>
+      <p id="stat-products" class="text-3xl font-bold mt-1">0</p>
+      <p class="text-xs text-gray-400 dark:text-slate-500 mt-1"><span id="stat-products-active">0</span> active</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">Total Posts</p>
+      <p id="stat-posts" class="text-3xl font-bold mt-1">0</p>
+      <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">across all statuses</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">Scheduled (next 24h)</p>
+      <p id="stat-scheduled" class="text-3xl font-bold mt-1">0</p>
+      <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">due within a day</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">Published (last 7 days)</p>
+      <p id="stat-published" class="text-3xl font-bold mt-1">0</p>
+      <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">recently published</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">AI Generations</p>
+      <p id="stat-ai" class="text-3xl font-bold mt-1">0</p>
+      <p class="text-xs text-gray-400 dark:text-slate-500 mt-1"><span id="stat-ai-failed">0</span> failed</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">System Status</p>
+      <p id="stat-health" class="text-3xl font-bold mt-1">—</p>
+      <p id="stat-health-sub" class="text-xs text-gray-400 dark:text-slate-500 mt-1">checking…</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <p class="text-sm text-gray-500 dark:text-slate-400">Automation</p>
+      <p id="stat-automation" class="text-3xl font-bold mt-1">—</p>
+      <p id="stat-automation-sub" class="text-xs text-gray-400 dark:text-slate-500 mt-1">checking…</p>
+      <a href="/settings" class="text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline">Manage Automation</a>
+    </div>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Growth Chart</h3>
+      <span id="growth-chart-range" class="text-xs text-gray-500 dark:text-slate-400"></span>
+      <a href="/groups" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Log numbers →</a>
+    </div>
+    <div class="flex items-center gap-4 mb-2 text-xs text-gray-600 dark:text-slate-300">
+      <span><span class="inline-block w-3 h-3 rounded-full" style="background-color:#3b82f6"></span> Members</span>
+      <span><span class="inline-block w-3 h-3 rounded-full" style="background-color:#22c55e"></span> Leads</span>
+    </div>
+    <div id="growth-chart" role="img" aria-label="Member and lead growth chart"></div>
+    <p id="growth-chart-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-4">No stats yet — log today's numbers on the <a href="/groups" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">Groups page</a>.</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Weekly Digest</h3>
+      <div id="weekly-digest" class="text-sm"></div>
+      <p id="weekly-digest-empty" class="hidden text-sm text-gray-500 dark:text-slate-400">No stats yet — log today's numbers on the <a href="/groups" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">Groups page</a>.</p>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Template Performance</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
+              <th class="py-2 pr-3">Template</th>
+              <th class="py-2 pr-3">Posted</th>
+              <th class="py-2 pr-3">Leads</th>
+              <th class="py-2 pr-3">Conv</th>
+              <th class="py-2 pr-3">Conv %</th>
+              <th class="py-2">Revenue</th>
+            </tr>
+          </thead>
+          <tbody id="template-perf-body"></tbody>
+        </table>
+      </div>
+      <p id="template-perf-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-4">No template data yet.</p>
+    </div>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Group DM Revenue</h3>
+      <a href="/groups" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Open DM Funnel →</a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div>
+        <p class="text-sm text-gray-500 dark:text-slate-400">Total ROI (converted)</p>
+        <p id="revenue-total" class="text-3xl font-bold mt-1">$0.00</p>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-slate-400">Converted leads</p>
+        <p id="revenue-count" class="text-3xl font-bold mt-1">0</p>
+      </div>
+      <div>
+        <p class="text-sm text-gray-500 dark:text-slate-400">Avg per sale</p>
+        <p id="revenue-avg" class="text-3xl font-bold mt-1">$0.00</p>
+      </div>
+    </div>
+    <form id="revenue-form" class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+      <div>
+        <label class="field-label" for="revenue-lead">Converted lead</label>
+        <select id="revenue-lead" class="field-input"></select>
+      </div>
+      <div>
+        <label class="field-label" for="revenue-amount">Sale amount ($)</label>
+        <input id="revenue-amount" type="number" min="0" step="0.01" class="field-input" placeholder="e.g. 24.99 (shirt) / 49.99 (hoodie) / 14.99 (mug)" />
+      </div>
+      <div>
+        <button id="revenue-save-btn" type="submit" class="btn btn-primary w-full">Log Sale</button>
+      </div>
+    </form>
+    <p id="revenue-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 mt-3">No converted leads yet — mark a lead Converted in the <a href="/groups" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">DM Funnel</a>, then log the sale here.</p>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-8">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Today's Actions</h3>
+      <a href="/groups" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Open DM Funnel →</a>
+    </div>
+    <div id="today-actions-caught-up" class="hidden text-sm font-medium text-green-700 dark:text-green-300" role="status">✅ All caught up — no leads need attention.</div>
+    <ul id="today-actions-list" class="space-y-2 text-sm">
+      <li class="flex items-center justify-between gap-2">
+        <span class="text-gray-600 dark:text-slate-300">Reply checks</span>
+        <a href="/groups?bucket=reply_check" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline" data-today-link="reply_check"><span id="today-actions-reply">0</span></a>
+      </li>
+      <li class="flex items-center justify-between gap-2">
+        <span class="text-gray-600 dark:text-slate-300">Overdue checks</span>
+        <a href="/groups?bucket=overdue" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline" data-today-link="overdue"><span id="today-actions-overdue">0</span></a>
+      </li>
+      <li class="flex items-center justify-between gap-2">
+        <span class="text-gray-600 dark:text-slate-300">M2 to send</span>
+        <a href="/groups?bucket=m2_waiting" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline" data-today-link="m2_waiting"><span id="today-actions-m2">0</span></a>
+      </li>
+      <li class="flex items-center justify-between gap-2">
+        <span class="text-gray-600 dark:text-slate-300">Cold follow-ups ready</span>
+        <a href="/groups?bucket=cold" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline" data-today-link="cold"><span id="today-actions-cold">0</span></a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Posts by status</h3>
+      <div id="status-bars" class="space-y-3"></div>
+      <div id="status-bars-empty" class="hidden text-sm text-gray-500 dark:text-slate-400">
+        No posts yet.
+        <a href="/posts" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">Create your first post</a>
+      </div>
+    </div>
+    <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+      <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Quick Generate</h3>
+      <form id="quick-generate-form" class="space-y-3">
+        <div>
+          <label class="field-label" for="quick-product">Product</label>
+          <select id="quick-product" class="field-input" required></select>
+        </div>
+        <div>
+          <label class="field-label" for="quick-tone">Tone</label>
+          <select id="quick-tone" class="field-input">
+            <option value="friendly">friendly</option>
+            <option value="funny">funny</option>
+            <option value="urgent">urgent</option>
+            <option value="inspirational">inspirational</option>
+            <option value="professional">professional</option>
+          </select>
+        </div>
+        <button id="quick-generate-btn" type="submit" class="btn btn-primary w-full">Generate Draft</button>
+      </form>
+      <div id="quick-generate-result" class="hidden mt-4 text-sm"></div>
+    </div>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Recent Activity</h3>
+      <a href="/logs" class="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">View all logs</a>
+    </div>
+    <ul id="activity-list" class="divide-y divide-gray-100 dark:divide-slate-700"></ul>
+    <div id="activity-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-4">
+      No activity recorded yet. Generate a post to get started.
+    </div>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mt-4">
+    <div class="flex flex-wrap items-center gap-3 mb-2">
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">AI Usage</h3>
+      <span id="ai-usage-mtd" class="text-sm text-gray-600 dark:text-slate-300"></span>
+      <a href="/settings" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Details →</a>
+    </div>
+    <div id="ai-usage-spark" role="img" aria-label="Daily AI cost sparkline"></div>
+    <p id="ai-usage-empty" class="hidden text-sm text-gray-500 dark:text-slate-400">No AI calls yet.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

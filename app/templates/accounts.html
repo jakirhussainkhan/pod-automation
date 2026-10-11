@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Facebook Accounts - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Facebook Accounts</h2>{% endblock %}
+
+{% block content %}
+<p class="text-sm text-gray-500 dark:text-slate-400 mb-4">Ghost-profile personas for rotating DM outreach — per-account voice, health tracking, and collision prevention.</p>
+
+<div class="flex flex-wrap items-center gap-3 mb-4">
+  <span id="accounts-summary" class="text-sm text-gray-600 dark:text-slate-300">Loading…</span>
+  <button id="accounts-add-btn" type="button" class="btn btn-primary btn-sm ml-auto">Add Account</button>
+  <button id="accounts-refresh-btn" type="button" class="btn btn-secondary btn-sm">Refresh</button>
+</div>
+
+<div id="accounts-empty" class="hidden bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg p-8 text-center">
+  <p class="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-2">No accounts yet</p>
+  <p class="text-sm text-gray-500 dark:text-slate-400 mb-4">Add your first ghost profile to start rotating outreach.</p>
+  <button id="accounts-empty-add" type="button" class="btn btn-primary">Add your first account</button>
+</div>
+
+<div id="accounts-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/accounts.js"></script>
+{% endblock %}

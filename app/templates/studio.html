@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}AI Studio - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">AI Studio</h2>{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Controls</h3>
+    <div class="space-y-4">
+      <div>
+        <label class="field-label" for="studio-product">Product</label>
+        <select id="studio-product" class="field-input"></select>
+      </div>
+      <div>
+        <span class="field-label" id="studio-tone-label">Tone</span>
+        <div id="studio-tones" class="flex flex-wrap gap-2" role="group" aria-labelledby="studio-tone-label">
+          <button type="button" class="pill pill-active" data-tone="friendly">friendly</button>
+          <button type="button" class="pill" data-tone="funny">funny</button>
+          <button type="button" class="pill" data-tone="urgent">urgent</button>
+          <button type="button" class="pill" data-tone="inspirational">inspirational</button>
+          <button type="button" class="pill" data-tone="professional">professional</button>
+        </div>
+      </div>
+      <div>
+        <label class="field-label" for="studio-count">Variation count (2-5)</label>
+        <input id="studio-count" type="number" class="field-input" min="2" max="5" value="3" />
+      </div>
+      <div class="space-y-2">
+        <button id="studio-preview-btn" type="button" class="btn btn-primary w-full">Preview Caption</button>
+        <button id="studio-variations-btn" type="button" class="btn btn-secondary w-full">Generate Variations</button>
+        <button id="studio-hashtags-btn" type="button" class="btn btn-secondary w-full">Suggest Hashtags</button>
+      </div>
+    </div>
+
+    <hr class="my-5 border-gray-200 dark:border-slate-700" />
+    <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Group Engagement</h3>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mb-2">Psychology-driven prompts for US/UK/EU car &amp; biker subcultures. Identity &amp; controversy first — selling is <strong>banned</strong> in posts.</p>
+    <div class="flex flex-wrap gap-1 mb-4">
+      <span class="badge badge-green">zero-link</span>
+      <span class="badge badge-blue">spam-shield spun</span>
+      <span class="badge badge-amber">DM-only selling</span>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="field-label" for="group-niche">Niche</label>
+        <select id="group-niche" class="field-input">
+          <option value="car">Car</option>
+          <option value="bike">Bike</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="group-subculture">Subculture lens</label>
+        <select id="group-subculture" class="field-input">
+          <option value="auto">Auto (template default)</option>
+          <option value="jdm">JDM</option>
+          <option value="american_muscle">American Muscle</option>
+          <option value="biker_brotherhood">Biker Brotherhood</option>
+          <option value="vintage_restoration">Vintage Restoration</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="group-template">Template (psychology trigger)</label>
+        <select id="group-template" class="field-input">
+          <option value="show_your_ride">Show Your Ride — tribal loyalty</option>
+          <option value="first_bike_story">First Bike Story — nostalgia</option>
+          <option value="guess_the_muscle_car">Guess the Muscle Car — debate bait</option>
+          <option value="dream_garage">Dream Garage — identity + controversy</option>
+          <option value="mod_monday">Mod Monday — status validation</option>
+          <option value="road_trip_memory">Road Trip Memory — nostalgia</option>
+          <option value="jdm_vs_muscle">JDM vs Muscle — tribal war</option>
+          <option value="brotherhood_oath">Brotherhood Oath — loyalty test</option>
+          <option value="restoration_soul">Restoration Soul — purist vs builder</option>
+          <option value="gear_status_check">Gear Status Check — indirect selling</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="group-trigger">Force trigger (optional)</label>
+        <select id="group-trigger" class="field-input">
+          <option value="auto">Auto (template default)</option>
+          <option value="tribal_loyalty">Tribal Loyalty</option>
+          <option value="nostalgia">Nostalgia</option>
+          <option value="debate_bait">Debate-Baiting</option>
+          <option value="in_group_validation">In-Group Validation</option>
+          <option value="identity_attachment">Identity Attachment</option>
+          <option value="controversy">Controversy</option>
+          <option value="status_validation">Status &amp; Gear Validation</option>
+        </select>
+      </div>
+      <button id="group-generate-btn" type="button" class="btn btn-primary w-full">Generate Group Post</button>
+      <button id="group-batch-btn" type="button" class="btn btn-secondary w-full">Auto-Generate Daily Batch (5)</button>
+      <p class="text-xs text-gray-500 dark:text-slate-400">Every post is synonym-spun, hashtag-rotated, and zero-link enforced. Product links route only through the DM funnel.</p>
+      <a href="/groups" class="btn btn-secondary w-full">Open DM Funnel &amp; Cadence →</a>
+    </div>
+
+    <hr class="my-5 border-gray-200 dark:border-slate-700" />
+    <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Group Post Queue</h3>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mb-3"><span id="queue-counts">0 queued · 0 posted</span></p>
+    <div id="queue-list" class="space-y-3"></div>
+    <div id="queue-empty" class="text-xs text-gray-500 dark:text-slate-400 py-3 text-center">Queue is empty — generate a single post or the daily batch of 5.</div>
+  </div>
+
+  <div class="lg:col-span-2">
+    <div id="studio-loading" class="hidden space-y-3" aria-label="Generating content">
+      <div class="skeleton h-48"></div>
+      <div class="skeleton h-24"></div>
+    </div>
+    <div id="studio-error" class="hidden bg-red-50/80 dark:bg-red-900/30 backdrop-blur-md border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg px-4 py-3 text-sm mb-4" role="alert">
+      <span id="studio-error-text"></span>
+      <button id="studio-retry" type="button" class="btn btn-secondary btn-sm ml-3">Retry</button>
+    </div>
+    <div id="studio-empty" class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-10 text-center text-sm text-gray-500 dark:text-slate-400">
+      Pick a product and a tone, then preview a caption, generate variations, or suggest hashtags — or generate a LINK-FREE group post below.
+    </div>
+    <div id="studio-results" class="space-y-4"></div>
+
+    <div id="group-result" class="hidden mt-4 bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-emerald-200/70 dark:border-emerald-700/60 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-4 md:p-5">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <span class="badge badge-green">LINK-FREE</span>
+        <span class="badge badge-blue">SPAM-SHIELD</span>
+        <span id="group-result-meta" class="text-xs text-gray-500 dark:text-slate-400"></span>
+      </div>
+      <p id="group-result-psych" class="text-xs text-gray-500 dark:text-slate-400 mb-2"></p>
+      <p id="group-result-caption" class="text-sm text-gray-800 dark:text-slate-100 whitespace-pre-wrap"></p>
+      <div id="group-result-tags" class="flex flex-wrap gap-1 mt-2"></div>
+      <p id="group-result-cta" class="text-sm mt-2 text-gray-600 dark:text-slate-300"></p>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button id="group-copy-btn" type="button" class="btn btn-primary btn-sm">Copy Post Text</button>
+        <button id="group-copy-tags-btn" type="button" class="btn btn-secondary btn-sm">Copy Hashtags</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/studio.js"></script>
+{% endblock %}

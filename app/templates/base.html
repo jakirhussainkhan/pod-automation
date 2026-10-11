@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>{% block title %}POD Automation{% endblock %}</title>
+  <script>
+    /* Early theme init to avoid flash: applies saved or system theme. */
+    (function () {
+      try {
+        var stored = localStorage.getItem("pod-automation-theme") || "system";
+        var systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var effective = stored === "system" ? (systemDark ? "dark" : "light") : stored;
+        if (effective === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = "dark";
+        } else {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.style.colorScheme = "light";
+        }
+      } catch (e) {
+        /* localStorage unavailable: fall back to light mode. */
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    /* Enable Tailwind class-based dark mode for `dark:` variants. */
+    tailwind.config = { darkMode: "class" };
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css?v=4.0" />
+</head>
+<body class="bg-slate-100 text-gray-900 dark:bg-[#050811] dark:text-slate-100 antialiased">
+  <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
+  <div class="flex min-h-screen">
+    <aside id="sidebar" class="sidebar bg-white/80 dark:bg-[#090d18]/95 backdrop-blur-xl border-r border-gray-200/60 dark:border-slate-800/80 shadow-sm dark:shadow-2xl dark:shadow-black/40 text-gray-900 dark:text-slate-200" aria-label="Main navigation">
+      <div class="sidebar-brand px-6 py-5 border-b border-gray-200/60 dark:border-slate-800/80">
+        <h1 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-50">POD Automation</h1>
+        <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">Facebook Dashboard</p>
+      </div>
+      <nav class="flex-1 px-4 py-4 space-y-1">
+        <a href="/" class="nav-link {% if active_page == 'dashboard' %}nav-link-active{% endif %}">Dashboard</a>
+        <a href="/products" class="nav-link {% if active_page == 'products' %}nav-link-active{% endif %}">Products</a>
+        <a href="/posts" class="nav-link {% if active_page == 'posts' %}nav-link-active{% endif %}">Posts</a>
+        <a href="/studio" class="nav-link {% if active_page == 'studio' %}nav-link-active{% endif %}">AI Studio</a>
+        <a href="/groups" class="nav-link {% if active_page == 'groups' %}nav-link-active{% endif %}">Group Lead &amp; DM Funnel</a>
+        <a href="/accounts" class="nav-link {% if active_page == 'accounts' %}nav-link-active{% endif %}">Accounts</a>
+        <a href="/logs" class="nav-link {% if active_page == 'logs' %}nav-link-active{% endif %}">Activity Logs</a>
+        <a href="/settings" class="nav-link {% if active_page == 'settings' %}nav-link-active{% endif %}">Settings</a>
+      </nav>
+      <div class="sidebar-footer px-6 py-4 border-t border-gray-200/60 dark:border-slate-800/80 text-xs text-gray-500 dark:text-slate-400">
+        {{ app_name }} &middot; {{ environment }}
+      </div>
+    </aside>
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="topbar bg-white/70 dark:bg-[#090d18]/90 backdrop-blur-xl border-gray-200/60 dark:border-slate-800/80 shadow-lg shadow-gray-200/50 dark:shadow-2xl dark:shadow-black/40">
+        <button id="sidebar-toggle" type="button" class="icon-button lg:hidden" aria-label="Open navigation menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        <div class="min-w-0">
+          {% block page_title %}<h2 class="text-xl font-bold truncate">Dashboard</h2>{% endblock %}
+        </div>
+        <div class="ml-auto flex items-center gap-3">
+          <span id="ai-status-badge" class="badge badge-gray" role="status">Checking AI&hellip;</span>
+          <button id="theme-toggle" type="button" class="icon-button" aria-label="Toggle dark mode" title="Toggle dark mode">
+            <svg id="theme-icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.36 6.36l-.7-.7M6.34 6.34l-.7-.7m12.02 0l-.7.7M6.34 17.66l-.7.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <svg id="theme-icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.35 14.5A8.5 8.5 0 019.5 3.65a.75.75 0 00-.92-.94 10 10 0 1012.71 12.71.75.75 0 00-.94-.92z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+      <main class="flex-1 p-4 md:p-8 w-full max-w-6xl mx-auto">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <div id="confirm-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-message">
+      <h3 id="confirm-modal-title" class="text-lg font-semibold mb-2">Please confirm</h3>
+      <p id="confirm-modal-message" class="text-sm text-gray-600 dark:text-slate-300 mb-6"></p>
+      <div class="flex justify-end gap-3">
+        <button id="confirm-modal-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="confirm-modal-ok" type="button" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="generic-modal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-card-lg" role="dialog" aria-modal="true" aria-labelledby="generic-modal-title">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <h3 id="generic-modal-title" class="text-lg font-semibold"></h3>
+        <button id="generic-modal-close" type="button" class="icon-button" aria-label="Close dialog">&times;</button>
+      </div>
+      <div id="generic-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

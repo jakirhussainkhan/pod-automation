@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Posts - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Posts</h2>{% endblock %}
+
+{% block content %}
+<div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-4 md:p-5 mb-4">
+  <div class="flex flex-col md:flex-row md:items-end gap-3">
+    <div class="flex-1">
+      <span class="field-label" id="status-tabs-label">Status</span>
+      <div id="status-tabs" class="flex flex-wrap gap-2" role="group" aria-labelledby="status-tabs-label"></div>
+    </div>
+    <div class="w-full md:w-64">
+      <label class="field-label" for="post-product-filter">Product</label>
+      <select id="post-product-filter" class="field-input">
+        <option value="">All products</option>
+      </select>
+    </div>
+    <button id="post-new-btn" type="button" class="btn btn-primary">New Post</button>
+  </div>
+</div>
+
+<div id="posts-bulkbar" class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
+  <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-200 cursor-pointer">
+    <input id="posts-select-all" type="checkbox" class="h-4 w-4" />
+    <span>Select page</span>
+  </label>
+  <span id="posts-selected-count" class="text-sm text-gray-500 dark:text-slate-400">0 selected</span>
+  <div class="ml-auto flex flex-wrap gap-2">
+    <button id="posts-bulk-delete" type="button" class="btn btn-danger btn-sm" disabled>Delete Selected</button>
+    <button id="posts-clear-all" type="button" class="btn btn-secondary btn-sm" title="Delete every post in the current filter (status tab)">Clear <span id="posts-clear-all-label">All Posts</span></button>
+  </div>
+</div>
+
+<div id="posts-loading" class="space-y-3" aria-label="Loading posts">
+  <div class="skeleton h-40"></div>
+  <div class="skeleton h-40"></div>
+</div>
+
+<div id="posts-error" class="hidden bg-red-50/80 dark:bg-red-900/30 backdrop-blur-md border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg px-4 py-3 text-sm" role="alert">
+  <span id="posts-error-text"></span>
+  <button id="posts-retry" type="button" class="btn btn-secondary btn-sm ml-3">Retry</button>
+</div>
+
+<div id="posts-empty" class="hidden bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-10 text-center">
+  <p class="text-gray-600 dark:text-slate-300 mb-4">No posts found. Create a manual post or generate one with AI Studio.</p>
+  <div class="flex justify-center gap-3">
+    <button id="posts-empty-new" type="button" class="btn btn-primary">New Post</button>
+    <a href="/studio" class="btn btn-secondary">Open AI Studio</a>
+  </div>
+</div>
+
+<div id="posts-list" class="space-y-4"></div>
+
+<div id="posts-pagination" class="mt-4 flex flex-wrap items-center justify-between gap-2"></div>
+
+<div id="post-modal" class="modal-backdrop" hidden>
+  <div class="modal-card modal-card-lg" role="dialog" aria-modal="true" aria-labelledby="post-modal-title">
+    <h3 id="post-modal-title" class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">New Post</h3>
+    <form id="post-form" class="space-y-3" novalidate>
+      <input id="post-id" type="hidden" value="" />
+      <div>
+        <label class="field-label" for="post-product">Product (optional)</label>
+        <select id="post-product" class="field-input">
+          <option value="">No product</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label" for="post-caption">Caption</label>
+        <textarea id="post-caption" class="field-input" rows="5" required></textarea>
+        <p class="text-xs text-gray-400 dark:text-slate-500 mt-1"><span id="post-caption-count">0</span> characters</p>
+        <p id="post-caption-error" class="field-error hidden"></p>
+      </div>
+      <div>
+        <label class="field-label" for="post-hashtags">Hashtags (comma or space separated)</label>
+        <input id="post-hashtags" type="text" class="field-input" placeholder="#sale #newdrop" />
+      </div>
+      <div>
+        <label class="field-label" for="post-image-url">Image URL</label>
+        <input id="post-image-url" type="url" class="field-input" placeholder="https://…" />
+        <p id="post-image-url-error" class="field-error hidden"></p>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="post-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="post-save" type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="schedule-modal" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title">
+    <h3 id="schedule-modal-title" class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Schedule Post</h3>
+    <form id="schedule-form" class="space-y-3">
+      <input id="schedule-post-id" type="hidden" value="" />
+      <div>
+        <label class="field-label" for="schedule-at">Date and time (<span id="schedule-tz"></span>)</label>
+        <input id="schedule-at" type="datetime-local" class="field-input" required />
+        <p id="schedule-at-error" class="field-error hidden"></p>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="schedule-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="schedule-save" type="submit" class="btn btn-primary">Schedule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="regenerate-modal" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="regenerate-modal-title">
+    <h3 id="regenerate-modal-title" class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Regenerate Caption</h3>
+    <form id="regenerate-form" class="space-y-3">
+      <input id="regenerate-post-id" type="hidden" value="" />
+      <div>
+        <label class="field-label" for="regenerate-tone">Tone</label>
+        <select id="regenerate-tone" class="field-input">
+          <option value="friendly">friendly</option>
+          <option value="funny">funny</option>
+          <option value="urgent">urgent</option>
+          <option value="inspirational">inspirational</option>
+          <option value="professional">professional</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="regenerate-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="regenerate-save" type="submit" class="btn btn-primary">Regenerate</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/posts.js"></script>
+{% endblock %}

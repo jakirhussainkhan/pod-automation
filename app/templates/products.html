@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Products - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Products</h2>{% endblock %}
+
+{% block content %}
+<div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-4 md:p-5 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <div class="lg:col-span-2">
+      <label class="field-label" for="product-search">Search</label>
+      <input id="product-search" type="search" class="field-input" placeholder="Search title or description" autocomplete="off" />
+    </div>
+    <div>
+      <label class="field-label" for="product-niche">Niche</label>
+      <select id="product-niche" class="field-input">
+        <option value="">All niches</option>
+      </select>
+    </div>
+    <div>
+      <label class="field-label" for="product-status">Status</label>
+      <select id="product-status" class="field-input">
+        <option value="">All statuses</option>
+        <option value="active">active</option>
+        <option value="archived">archived</option>
+      </select>
+    </div>
+    <div class="flex items-end gap-2">
+      <button id="product-add-btn" type="button" class="btn btn-primary w-full">Add Product</button>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center gap-2 mt-3">
+    <p class="text-xs text-gray-500 dark:text-slate-400 mr-auto">Seed products are fully editable &amp; deletable like any product.</p>
+  </div>
+</div>
+
+<div id="products-loading" class="space-y-3" aria-label="Loading products">
+  <div class="skeleton h-16"></div>
+  <div class="skeleton h-16"></div>
+  <div class="skeleton h-16"></div>
+</div>
+
+<div id="products-error" class="hidden bg-red-50/80 dark:bg-red-900/30 backdrop-blur-md border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg px-4 py-3 text-sm" role="alert">
+  <span id="products-error-text"></span>
+  <button id="products-retry" type="button" class="btn btn-secondary btn-sm ml-3">Retry</button>
+</div>
+
+<div id="products-empty" class="hidden bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-10 text-center">
+  <p class="text-gray-600 dark:text-slate-300 mb-4">No products found. Add your first print-on-demand product to get started.</p>
+  <button id="products-empty-add" type="button" class="btn btn-primary">Add Product</button>
+</div>
+
+<div id="products-table-wrap" class="hidden md:block bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 overflow-x-auto">
+  <table class="w-full text-sm text-gray-900 dark:text-slate-100">
+    <thead>
+      <tr class="text-left text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
+        <th class="px-4 py-3 font-semibold" scope="col">Product</th>
+        <th class="px-4 py-3 font-semibold" scope="col">Niche</th>
+        <th class="px-4 py-3 font-semibold" scope="col">Price</th>
+        <th class="px-4 py-3 font-semibold" scope="col">Status</th>
+        <th class="px-4 py-3 font-semibold" scope="col">Tags</th>
+        <th class="px-4 py-3 font-semibold text-right" scope="col">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="products-tbody"></tbody>
+  </table>
+</div>
+
+<div id="products-cards" class="md:hidden space-y-3"></div>
+
+<div id="products-pagination" class="mt-4 flex flex-wrap items-center justify-between gap-2"></div>
+
+<div id="product-modal" class="modal-backdrop" hidden>
+  <div class="modal-card modal-card-lg" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+    <h3 id="product-modal-title" class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Add Product</h3>
+    <form id="product-form" class="space-y-3" novalidate>
+      <input id="product-id" type="hidden" value="" />
+      <div>
+        <label class="field-label" for="product-title">Title</label>
+        <input id="product-title" type="text" class="field-input" maxlength="200" required />
+        <p id="product-title-error" class="field-error hidden"></p>
+      </div>
+      <div>
+        <label class="field-label" for="product-niche-input">Niche</label>
+        <input id="product-niche-input" type="text" class="field-input" maxlength="100" required />
+        <p id="product-niche-error" class="field-error hidden"></p>
+      </div>
+      <div>
+        <label class="field-label" for="product-description">Description</label>
+        <textarea id="product-description" class="field-input" rows="3"></textarea>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="product-design-url">Design URL</label>
+          <input id="product-design-url" type="url" class="field-input" placeholder="https://…" />
+          <p id="product-design-url-error" class="field-error hidden"></p>
+        </div>
+        <div>
+          <label class="field-label" for="product-mockup-url">Mockup URL</label>
+          <input id="product-mockup-url" type="url" class="field-input" placeholder="https://…" />
+          <p id="product-mockup-url-error" class="field-error hidden"></p>
+        </div>
+      </div>
+      <div>
+        <label class="field-label" for="product-store-url">Store URL</label>
+        <input id="product-store-url" type="url" class="field-input" placeholder="https://…" />
+        <p id="product-store-url-error" class="field-error hidden"></p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="product-price">Price</label>
+          <input id="product-price" type="number" class="field-input" min="0" step="0.01" placeholder="24.99" />
+          <p id="product-price-error" class="field-error hidden"></p>
+        </div>
+        <div>
+          <label class="field-label" for="product-status-input">Status</label>
+          <select id="product-status-input" class="field-input">
+            <option value="active">active</option>
+            <option value="archived">archived</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="field-label" for="product-tags">Tags (comma-separated)</label>
+        <input id="product-tags" type="text" class="field-input" placeholder="cats, funny, space" />
+      </div>
+      <div class="flex justify-between gap-3 pt-2">
+        <button id="product-delete-btn" type="button" class="btn btn-danger hidden">Delete Product</button>
+        <div class="flex gap-3 ml-auto">
+          <button id="product-cancel" type="button" class="btn btn-secondary">Cancel</button>
+          <button id="product-save" type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/products.js"></script>
+{% endblock %}

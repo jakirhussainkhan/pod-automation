@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Group Lead & DM Funnel - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Group Lead &amp; DM Funnel</h2>{% endblock %}
+
+{% block content %}
+<p class="text-sm text-gray-500 dark:text-slate-400 mb-4">Facebook Group Growth &amp; Intent DM Engine — classify comments, run the 2-step DM funnel, and pace posts with the anti-spam cadence timer.</p>
+
+<div id="groups-stats" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <p class="text-sm text-gray-500 dark:text-slate-400">Total Leads</p>
+    <p id="funnel-total" class="text-3xl font-bold mt-1">0</p>
+  </div>
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <p class="text-sm text-gray-500 dark:text-slate-400">Unsent</p>
+    <p id="funnel-unsent" class="text-3xl font-bold mt-1">0</p>
+  </div>
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <p class="text-sm text-gray-500 dark:text-slate-400">Step 1 Sent</p>
+    <p id="funnel-step1" class="text-3xl font-bold mt-1">0</p>
+  </div>
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <p class="text-sm text-gray-500 dark:text-slate-400">Converted</p>
+    <p id="funnel-converted" class="text-3xl font-bold mt-1">0</p>
+  </div>
+</div>
+
+<div id="dm-quota-card" class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 px-5 py-3 mb-4 flex flex-wrap items-center gap-3" role="status" aria-live="polite">
+  <span class="text-sm font-semibold text-gray-900 dark:text-slate-100">DM Quota</span>
+  <span id="dm-quota-text" class="text-sm text-gray-600 dark:text-slate-300">Loading quota…</span>
+  <span id="dm-quota-badge" class="badge badge-gray">—</span>
+  <button id="dm-quota-refresh" type="button" class="btn btn-secondary btn-sm ml-auto">Refresh</button>
+</div>
+
+<div id="snapshot-card" class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 px-5 py-3 mb-4" role="status" aria-live="polite">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm font-semibold text-gray-900 dark:text-slate-100">Today's Snapshot</span>
+    <span id="snapshot-values" class="text-sm text-gray-600 dark:text-slate-300">Loading…</span>
+    <span class="ml-auto flex gap-2">
+      <button id="snapshot-log-btn" type="button" class="btn btn-secondary btn-sm">Log today's numbers</button>
+      <button id="snapshot-edit-btn" type="button" class="btn btn-secondary btn-sm hidden" aria-label="Edit today's snapshot">✏️</button>
+    </span>
+  </div>
+  <p id="snapshot-auto" class="hidden text-xs text-gray-500 dark:text-slate-400 mt-1"></p>
+</div>
+
+<div id="attention-board" class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 px-5 py-3 mb-4" role="status" aria-live="polite">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm font-semibold text-gray-900 dark:text-slate-100">Needs Attention</span>
+    <span id="attention-badge" class="badge badge-gray">—</span>
+    <div class="flex flex-wrap gap-2 ml-auto">
+      <button type="button" class="btn btn-secondary btn-sm attention-tile" data-bucket="reply_check">Reply Check (<span id="attention-reply-check">0</span>)</button>
+      <button type="button" class="btn btn-secondary btn-sm attention-tile" data-bucket="overdue">Overdue (<span id="attention-overdue">0</span>)</button>
+      <button type="button" class="btn btn-secondary btn-sm attention-tile" data-bucket="m2_waiting">M2 Waiting (<span id="attention-m2-waiting">0</span>)</button>
+      <button type="button" class="btn btn-secondary btn-sm attention-tile" data-bucket="cold">Cold Follow-up (<span id="attention-cold">0</span>)</button>
+      <button type="button" class="btn btn-secondary btn-sm attention-tile" data-bucket="unassigned">Unassigned (<span id="attention-unassigned">0</span>)</button>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Cadence Helper</h3>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mb-4">Randomized 3–5 min safety delay between group posts / replies to avoid Meta spam flags.</p>
+    <div class="flex items-center gap-3 mb-3">
+      <button id="cadence-roll-btn" type="button" class="btn btn-primary">Roll Safety Delay</button>
+      <span id="cadence-delay-label" class="text-sm font-semibold text-gray-700 dark:text-slate-200">—</span>
+    </div>
+    <div class="stat-bar mb-2"><div id="cadence-progress" class="stat-bar-fill bg-blue-600" style="width:0%"></div></div>
+    <p id="cadence-status" class="text-sm font-medium text-gray-600 dark:text-slate-300" role="status">Press “Roll Safety Delay”, post/reply, then start the timer.</p>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button id="cadence-start-btn" type="button" class="btn btn-secondary btn-sm" disabled>Start Countdown</button>
+      <button id="cadence-reset-btn" type="button" class="btn btn-secondary btn-sm">Reset</button>
+    </div>
+  </div>
+
+  <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+    <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Comment Intent Check</h3>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mb-4">Paste a raw group comment → classify High / Medium / Low → save High-intent leads with auto DMs.</p>
+    <div class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="field-label" for="intent-username">Username</label>
+          <input id="intent-username" class="field-input" placeholder="group_member" maxlength="120" />
+        </div>
+        <div>
+          <label class="field-label" for="intent-group">Group name (optional)</label>
+          <input id="intent-group" class="field-input" placeholder="e.g. Muscle Cars Owners" maxlength="200" />
+        </div>
+      </div>
+      <div>
+        <label class="field-label" for="intent-comment">Raw comment</label>
+        <textarea id="intent-comment" class="field-input" rows="3" placeholder="e.g. Love this! Where can I buy one, how much is it?"></textarea>
+      </div>
+      <div>
+        <label class="field-label" for="intent-product">Attach product for Message 2 link (optional)</label>
+        <select id="intent-product" class="field-input"><option value="">No product link</option></select>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button id="intent-classify-btn" type="button" class="btn btn-secondary">Classify Only</button>
+        <button id="intent-save-btn" type="button" class="btn btn-primary">Classify &amp; Save Lead</button>
+      </div>
+      <div id="intent-result" class="hidden text-sm rounded-lg border px-4 py-3"></div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 mb-4">
+  <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Smart Capture — Bulk Comment Parser</h3>
+  <p class="text-xs text-gray-500 dark:text-slate-400 mb-4">Paste 10+ group comments at once (one per line as <code>Name: comment</code>, <code>Name - comment</code> or <code>@name comment</code>). High-intent leads are classified and saved instantly; the rest are reported as skipped.</p>
+  <div class="space-y-3">
+    <div>
+      <label class="field-label" for="bulk-comments">Comments (one per line)</label>
+      <textarea id="bulk-comments" class="field-input" rows="5" placeholder="MikeRides: Love this! Where can I buy one, how much?&#10;Sara K - My first bike was a Honda Rebel, best summer ever&#10;@gearhead99 this is fire"></textarea>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="field-label" for="bulk-group">Group tag for all (optional)</label>
+        <input id="bulk-group" class="field-input" placeholder="e.g. Muscle Cars Owners" maxlength="200" />
+      </div>
+      <div>
+        <label class="field-label" for="bulk-product">Attach product for Message 2 link (optional)</label>
+        <select id="bulk-product" class="field-input"><option value="">No product link</option></select>
+      </div>
+    </div>
+    <div>
+      <button id="bulk-parse-btn" type="button" class="btn btn-primary">Parse &amp; Save High-Intent</button>
+    </div>
+    <div id="bulk-result" class="hidden text-sm rounded-lg border border-gray-200/60 dark:border-slate-700/50 bg-gray-50/70 dark:bg-slate-800/50 backdrop-blur-md text-gray-700 dark:text-slate-200 px-4 py-3"></div>
+  </div>
+</div>
+
+<div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5">
+  <div class="flex flex-wrap items-center gap-3 mb-4">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Leads Workbench</h3>
+    <select id="leads-filter" class="field-input ml-auto" style="width:auto">
+      <option value="">All statuses</option>
+      <option value="unsent">Unsent</option>
+      <option value="step1_sent">Step 1 Sent</option>
+      <option value="step2_sent">Step 2 Sent</option>
+      <option value="replied">Replied</option>
+      <option value="converted">Converted</option>
+      <option value="follow_up_sent">Follow-up Sent</option>
+    </select>
+    <button id="leads-refresh-btn" type="button" class="btn btn-secondary btn-sm">Refresh</button>
+  </div>
+  <div id="leads-chips" class="flex flex-wrap gap-2 mb-3" role="group" aria-label="Filter leads by attention bucket">
+    <button type="button" class="pill bucket-chip" data-bucket="">All</button>
+    <button type="button" class="pill bucket-chip" data-bucket="reply_check">Reply Check</button>
+    <button type="button" class="pill bucket-chip" data-bucket="overdue">Overdue</button>
+    <button type="button" class="pill bucket-chip" data-bucket="m2_waiting">M2 Waiting</button>
+    <button type="button" class="pill bucket-chip" data-bucket="cold">Cold</button>
+    <button type="button" class="pill bucket-chip" data-bucket="unassigned">Unassigned</button>
+    <button type="button" class="pill bucket-chip" data-bucket="__converted">Converted</button>
+  </div>
+  <div id="leads-bulk-bar" class="hidden flex flex-wrap items-center gap-2 mb-3">
+    <span id="leads-bulk-count" class="text-sm text-gray-600 dark:text-slate-300"></span>
+    <button id="leads-bulk-replied" type="button" class="btn btn-primary btn-sm">Mark Selected as Replied</button>
+    <button id="leads-bulk-assign" type="button" class="btn btn-secondary btn-sm">Auto-assign Selected</button>
+    <button id="leads-bulk-clear" type="button" class="btn btn-secondary btn-sm">Clear</button>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
+          <th class="py-2 pr-3"><input id="leads-select-all" type="checkbox" aria-label="Select all leads on this page" /></th>
+          <th class="py-2 pr-3">User / Comment</th>
+          <th class="py-2 pr-3">Intent</th>
+          <th class="py-2 pr-3">Status</th>
+          <th class="py-2 pr-3">DMs</th>
+          <th class="py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="leads-body"></tbody>
+    </table>
+    <div id="leads-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-6 text-center">No leads yet — classify a comment above to create the first one.</div>
+  </div>
+  <div id="leads-pagination" class="flex items-center justify-between mt-4"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/groups.js"></script>
+{% endblock %}
