@@ -893,3 +893,129 @@ html.dark tbody tr:hover {
 thead tr {
   border-bottom: 1px solid var(--border-subtle);
 }
+
+/* ---- Overview Dashboard (obsidian) ---- */
+.dash-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-card {
+  border-radius: 0.75rem;
+}
+
+.dash-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.dash-value {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.dash-sub {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+}
+
+.dash-link {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.dash-link:hover {
+  text-decoration: underline;
+}
+
+html.dark .dash-link {
+  color: #60a5fa;
+}
+
+.dash-tile {
+  display: block;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 0.75rem 0.875rem;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.dash-tile:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.dash-tile-title {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.dash-tile-sub {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.125rem;
+}
+
+html.dark .dash-tile-sub {
+  color: #94a3b8;
+}
+
+.dash-account {
+  display: block;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 0.75rem 0.875rem;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.dash-account:hover {
+  background-color: #f8fafc;
+}
+
+/* Obsidian dark surfaces: charcoal cards, subtle borders, soft hover. */
+html.dark .dash-card {
+  background-color: #111726;
+  border-color: #1e293b;
+  color: #f8fafc;
+}
+
+html.dark .dash-card:hover {
+  border-color: #334155;
+}
+
+html.dark .dash-label {
+  color: #94a3b8;
+}
+
+html.dark .dash-sub {
+  color: #64748b;
+}
+
+html.dark .dash-tile {
+  background-color: #090d18;
+  border-color: #1e293b;
+}
+
+html.dark .dash-tile:hover {
+  background-color: #161e31;
+  border-color: #334155;
+}
+
+html.dark .dash-tile-title {
+  color: #f8fafc;
+}
+
+html.dark .dash-account {
+  background-color: #090d18;
+  border-color: #1e293b;
+}
+
+html.dark .dash-account:hover {
+  background-color: #161e31;
+  border-color: #334155;
+}

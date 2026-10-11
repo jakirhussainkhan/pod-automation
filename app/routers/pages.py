@@ -25,10 +25,10 @@ def _page_context(active_page: str) -> dict:
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard_page(request: Request) -> HTMLResponse:
-    """Render the dashboard landing page."""
+    """Render the Overview Dashboard landing page."""
     return templates.TemplateResponse(
         request=request,
-        name="index.html",
+        name="dashboard.html",
         context=_page_context("dashboard"),
     )
 

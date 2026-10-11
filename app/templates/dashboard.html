@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - POD Automation{% endblock %}
+
+{% block page_title %}<h2 class="text-xl font-bold truncate">Overview</h2>{% endblock %}
+
+{% block content %}
+<div class="dash-page fade-in">
+  <!-- Header -->
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+    <div class="min-w-0">
+      <h2 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-slate-50">Overview</h2>
+      <p class="text-sm text-gray-500 dark:text-slate-400 mt-1">
+        <span id="overview-date">—</span>
+        <span class="mx-1" aria-hidden="true">·</span>
+        <span id="overview-status" class="text-gray-400 dark:text-slate-500">loading…</span>
+      </p>
+    </div>
+    <button id="overview-refresh" type="button" class="btn btn-secondary btn-sm ml-auto">
+      ↻ Refresh
+    </button>
+  </div>
+
+  <div id="dashboard-error" class="hidden mb-4 text-sm font-medium text-red-700 dark:text-red-200 bg-red-50/80 dark:bg-red-900/30 backdrop-blur-md border border-red-200 dark:border-red-800 rounded-lg px-4 py-3" role="alert">
+    <span id="dashboard-error-text"></span>
+    <button id="dashboard-retry" type="button" class="btn btn-secondary btn-sm ml-3">Retry</button>
+  </div>
+
+  <div id="dashboard-loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6" aria-label="Loading overview">
+    <div class="skeleton h-28"></div>
+    <div class="skeleton h-28"></div>
+    <div class="skeleton h-28"></div>
+    <div class="skeleton h-28"></div>
+    <div class="skeleton h-28"></div>
+  </div>
+
+  <div id="dashboard-content" class="hidden">
+    <!-- Summary Cards -->
+    <section aria-label="Summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div id="card-products" class="card dash-card p-5">
+        <p class="dash-label">Total Products</p>
+        <p id="stat-total-products" class="dash-value">0</p>
+        <p class="dash-sub"><a href="/products" class="dash-link">Manage products →</a></p>
+      </div>
+      <div id="card-leads" class="card dash-card p-5">
+        <p class="dash-label">Active Leads</p>
+        <p id="stat-active-leads" class="dash-value">0</p>
+        <p class="dash-sub"><a href="/groups" class="dash-link">Open DM funnel →</a></p>
+      </div>
+      <div id="card-messages" class="card dash-card p-5">
+        <p class="dash-label">Messages Sent Today</p>
+        <p id="stat-messages-today" class="dash-value">0</p>
+        <p class="dash-sub">M1 + M2 + follow-ups (UTC)</p>
+      </div>
+      <div id="card-revenue" class="card dash-card p-5">
+        <p class="dash-label">Conversion Revenue</p>
+        <p id="stat-revenue" class="dash-value">$0.00</p>
+        <p class="dash-sub"><a href="/groups" class="dash-link">Log a sale →</a></p>
+      </div>
+      <div id="card-pending" class="card dash-card p-5">
+        <p class="dash-label">Today's Pending Actions</p>
+        <p id="stat-pending" class="dash-value">0</p>
+        <p id="pending-breakdown" class="dash-sub">—</p>
+      </div>
+    </section>
+
+    <!-- Quick Action Hub -->
+    <section aria-label="Quick actions" class="card dash-card p-5 mb-6">
+      <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Quick Action Hub</h3>
+      <p class="text-sm text-gray-500 dark:text-slate-400 mb-4">One-click daily operations.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <button type="button" class="btn btn-primary" data-action="generate-batch">Auto-Generate 5 Daily Batch Posts</button>
+        <button type="button" class="btn btn-secondary" data-action="smart-capture">Smart Lead Capture</button>
+        <button type="button" class="btn btn-secondary" data-action="pending-dms">Check Pending DMs</button>
+        <button type="button" class="btn btn-secondary" data-action="dm-safety">View DM Safety Status</button>
+      </div>
+    </section>
+
+    <!-- Activity + Navigation -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <section aria-label="Recent activity" class="card dash-card p-5 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Recent Activity</h3>
+          <a href="/logs" class="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">View all logs</a>
+        </div>
+        <ul id="activity-stream" class="divide-y divide-gray-100 dark:divide-slate-800"></ul>
+        <p id="activity-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-4">No activity yet — generate a post to get started.</p>
+      </section>
+
+      <section aria-label="Quick navigation" class="card dash-card p-5">
+        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-slate-100">Jump to</h3>
+        <div class="grid grid-cols-1 gap-3">
+          <a href="/products" class="dash-tile"><span class="dash-tile-title">Products</span><span class="dash-tile-sub">Catalog &amp; pricing</span></a>
+          <a href="/studio" class="dash-tile"><span class="dash-tile-title">AI Studio</span><span class="dash-tile-sub">Generate creatives</span></a>
+          <a href="/groups" class="dash-tile"><span class="dash-tile-title">Groups</span><span class="dash-tile-sub">Lead &amp; DM funnel</span></a>
+          <a href="/accounts" class="dash-tile"><span class="dash-tile-title">Accounts</span><span class="dash-tile-sub">Ghost profiles</span></a>
+          <a href="/settings" class="dash-tile"><span class="dash-tile-title">Settings</span><span class="dash-tile-sub">Limits &amp; safety</span></a>
+        </div>
+      </section>
+    </div>
+
+    <!-- Multi-Account Status -->
+    <section aria-label="Account status" class="card dash-card p-5">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-slate-100">Multi-Account Status</h3>
+        <a href="/accounts" class="ml-auto text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">Manage →</a>
+      </div>
+      <div id="account-status" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      <p id="accounts-empty" class="hidden text-sm text-gray-500 dark:text-slate-400">No accounts yet — <a href="/accounts" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">add your first account</a>.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js?v=5.0"></script>
+{% endblock %}
