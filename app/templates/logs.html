@@ -6,9 +6,9 @@
 
 {% block content %}
 <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 mb-4">
-  <div class="flex items-center gap-2 px-4 pt-4" role="tablist" aria-label="Log views">
-    <button id="tab-activity" type="button" class="pill pill-active" role="tab" aria-selected="true">Activity</button>
-    <button id="tab-generations" type="button" class="pill" role="tab" aria-selected="false">AI Generations</button>
+  <div id="logs-tablist" class="flex items-center gap-2 px-4 pt-4" role="tablist" aria-label="Log views">
+    <button id="tab-activity" type="button" class="pill pill-active" role="tab" aria-selected="true" aria-controls="panel-activity" tabindex="0">Activity</button>
+    <button id="tab-generations" type="button" class="pill" role="tab" aria-selected="false" aria-controls="panel-generations" tabindex="-1">AI Generations</button>
     <button id="logs-clear" type="button" class="btn btn-danger btn-sm ml-auto" title="Delete all activity logs and AI generation history">Clear Logs</button>
   </div>
 
@@ -31,10 +31,12 @@
         </label>
       </div>
     </div>
-    <div id="logs-restore-bar" class="hidden mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-900/20 px-3 py-2">
-      <span id="logs-restore-count" class="text-sm text-indigo-700 dark:text-indigo-300">0 selected</span>
-      <button id="logs-restore-selected" type="button" class="btn btn-primary btn-sm">Restore Selected</button>
-      <button id="logs-restore-clear" type="button" class="btn btn-secondary btn-sm">Clear selection</button>
+    <div id="logs-restore-bar" class="hidden mb-3 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-100/70 dark:bg-slate-800/40">
+      <div class="flex flex-wrap items-center gap-2 px-3 py-2">
+        <span id="logs-restore-count" class="text-sm text-gray-700 dark:text-slate-300">0 selected</span>
+        <button id="logs-restore-selected" type="button" class="btn btn-primary btn-sm">Restore Selected</button>
+        <button id="logs-restore-clear" type="button" class="btn btn-secondary btn-sm">Clear selection</button>
+      </div>
     </div>
     <div id="logs-loading" class="space-y-2" aria-label="Loading logs">
       <div class="skeleton h-10"></div>
@@ -76,7 +78,7 @@
     </div>
     <div id="gen-empty" class="hidden text-sm text-gray-500 dark:text-slate-400 py-6 text-center">
       No AI generations recorded yet. Generate content from the
-      <a href="/studio" class="text-blue-600 dark:text-blue-400 font-medium hover:underline">AI Studio</a>.
+      <a href="/studio" class="text-gray-700 dark:text-slate-200 font-medium underline">AI Studio</a>.
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm hidden text-gray-900 dark:text-slate-100" id="gen-table">

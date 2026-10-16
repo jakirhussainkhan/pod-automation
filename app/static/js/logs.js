@@ -50,8 +50,7 @@
       bar.classList.add("hidden");
     } else {
       bar.classList.remove("hidden");
-      count.textContent =
-        selectedLogs.size + (selectedLogs.size === 1 ? " selected" : " selected");
+      count.textContent = selectedLogs.size + " selected";
     }
   }
 
@@ -412,6 +411,8 @@
     tabG.classList.toggle("pill-active", !activity);
     tabA.setAttribute("aria-selected", activity ? "true" : "false");
     tabG.setAttribute("aria-selected", activity ? "false" : "true");
+    tabA.setAttribute("tabindex", activity ? "0" : "-1");
+    tabG.setAttribute("tabindex", activity ? "-1" : "0");
     if (activity) {
       loadLogs();
     } else {
@@ -426,6 +427,21 @@
     document.getElementById("tab-generations").addEventListener("click", function () {
       switchTab("generations");
     });
+    // Arrow keys switch tabs (WAI-ARIA tabs pattern).
+    var tablist = document.getElementById("logs-tablist");
+    if (tablist) {
+      tablist.addEventListener("keydown", function (event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+          return;
+        }
+        event.preventDefault();
+        var next = document.activeElement && document.activeElement.id === "tab-activity"
+          ? "generations"
+          : "activity";
+        switchTab(next);
+        document.getElementById(next === "activity" ? "tab-activity" : "tab-generations").focus();
+      });
+    }
     document.getElementById("log-level").addEventListener("change", function (event) {
       logState.level = event.target.value;
       logState.skip = 0;

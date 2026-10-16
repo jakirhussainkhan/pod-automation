@@ -12,6 +12,9 @@ LOCAL_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost", "::1")
 WIPE_CONFIRM_TEXT: str = "WIPE ALL DATA"
 """Exact confirmation text required for full database wipes."""
 
+RESTORE_CONFIRM_TEXT: str = "RESTORE BACKUP"
+"""Exact confirmation text required for backup restores."""
+
 DESTRUCTIVE_CONFIRM_HEADER: str = "X-Confirm-Delete"
 """Custom header that must accompany destructive API calls."""
 
@@ -26,12 +29,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
-        extra="ignore",
+        # Fail loudly on unknown keys so `.env` typos never silently fall back
+        # to code defaults.
+        extra="forbid",
     )
 
     APP_NAME: str = "POD Facebook Automation Dashboard"
     APP_ENV: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
     HOST: str = "127.0.0.1"
     PORT: int = 8000
     # Local-only CORS origins (no wildcards). Extra dev ports included so the
@@ -65,10 +70,10 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GROQ_MODEL: str = "qwen/qwen3.8-27b"
     OPENAI_MODEL: str = "gpt-4o-mini"
-    AI_TEMPERATURE: float = 0.8
-    AI_MAX_TOKENS: int = 800
-    AI_TIMEOUT_SECONDS: int = 30
-    AI_MAX_RETRIES: int = 3
+    AI_TEMPERATURE: float = Field(default=0.8, ge=0.0, le=2.0)
+    AI_MAX_TOKENS: int = Field(default=800, ge=1, le=32000)
+    AI_TIMEOUT_SECONDS: int = Field(default=30, ge=1, le=600)
+    AI_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
     AI_FALLBACK_ENABLED: bool = True
     AI_MOCK_MODE: bool = False
     DEFAULT_POST_LANGUAGE: str = "English"
@@ -79,8 +84,8 @@ class Settings(BaseSettings):
     FACEBOOK_DRY_RUN: bool = True
     SCHEDULER_ENABLED: bool = True
     SCHEDULER_INTERVAL_SECONDS: int = Field(default=30, ge=10)
-    SCHEDULER_BATCH_SIZE: int = 5
-    PUBLISH_MAX_ATTEMPTS: int = 3
+    SCHEDULER_BATCH_SIZE: int = Field(default=5, ge=1, le=100)
+    PUBLISH_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=10)
     LOG_LEVEL: str = "INFO"
 
     def has_provider_key(self, provider: str) -> bool:

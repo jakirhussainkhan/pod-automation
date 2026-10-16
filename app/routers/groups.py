@@ -1,15 +1,20 @@
 """Group Growth & Intent DM Engine API router."""
 
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
 
 logger = logging.getLogger("pod-automation")
 
+# Bucket views compute urgency in Python, so they scan a bounded slice of leads
+# rather than the whole table (guard against unbounded memory/CPU).
+_BUCKET_SCAN_LIMIT = 2000
+
 from app.database.session import get_db
 from app.routers.ai import _map_ai_error
+from app.schemas.ai import GeneratedContent
 from app.schemas.group_lead import (
     BulkMarkReplyRequest,
     CadenceResponse,
@@ -30,7 +35,6 @@ from app.schemas.group_queue import (
     QueueUpdate,
     RevenueStats,
 )
-from app.schemas.ai import GeneratedContent
 from app.services import group_service
 from app.services.ai.content_generator import generate_group_post_content
 from app.services.ai.exceptions import AIServiceError
@@ -142,9 +146,15 @@ def generate_queue_batch(data: QueueBatchRequest, db: Session = Depends(get_db))
             saved = group_service.save_queued_post(db, step["niche"], step["template"], content)
             items.append(QueueItemRead.model_validate(saved))
         except AIServiceError as exc:
-            # Rows saved so far stay committed; report partial progress.
-            logger.warning("Queue batch partial failure after %d items: %s", len(items), exc)
-            raise _map_ai_error(exc)
+            # Rows saved so far are already committed; only surface an error when
+            # the batch produced nothing at all (otherwise return the partial
+            # result instead of a 5xx that hides the committed rows).
+            if not items:
+                raise _map_ai_error(exc)
+            logger.warning(
+                "Queue batch partial failure after %d item(s): %s", len(items), exc
+            )
+            break
     return items
 
 
@@ -248,8 +258,14 @@ def list_group_leads(
             payload.append(row)
         return {"items": payload, "total": total, "skip": effective_skip, "limit": limit}
     # Bucket filtering: one status-scoped query, urgency computed in Python
-    # (pure, no extra queries), filtered + paginated server-side.
-    all_items = group_service.list_leads(db, skip=0, limit=10000, status=status)
+    # (pure, no extra queries), filtered + paginated server-side. The scan is
+    # hard-capped so a pathological dataset can't load unbounded ORM rows.
+    all_items = group_service.list_leads(db, skip=0, limit=_BUCKET_SCAN_LIMIT, status=status)
+    if len(all_items) >= _BUCKET_SCAN_LIMIT:
+        logger.warning(
+            "Bucket scan reached the %s-lead cap; some leads may be omitted.",
+            _BUCKET_SCAN_LIMIT,
+        )
     cfg = lifecycle._lifecycle_cfg(db)
     wanted = set()
     if bucket == "attention":

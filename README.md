@@ -78,19 +78,84 @@ At a high level:
 
 - A single asyncio background task ticks every `SCHEDULER_INTERVAL_SECONDS`
   (minimum 10) when `SCHEDULER_ENABLED` is true.
-- Each tick opens its own DB session, loads due `scheduled` posts
-  (`scheduled_at <= now`, capped at `SCHEDULER_BATCH_SIZE`), and publishes them
-  one by one with a 2-second pause between posts.
-- An asyncio lock plus an in-memory in-flight set guarantees a post is never
-  published twice concurrently, including when **Run Now** fires during a tick.
-- Posts that fail stay `failed` and are not auto-retried once
-  `publish_attempts >= PUBLISH_MAX_ATTEMPTS` (manual retry from the UI still
-  works). Published posts are immutable and can never be published twice.
+- Each tick uses short-lived DB sessions: one to read settings/due posts, then
+  a fresh session per post. Due `scheduled` posts (`scheduled_at <= now`,
+  capped at `SCHEDULER_BATCH_SIZE`) are published one by one with a 2-second
+  pause between posts, and no session is held open across a network call.
+- A post is **claimed atomically** (`status -> publishing`) before the network
+  call, so the scheduler tick, a manual **Publish**, and parallel processes can
+  never publish the same post twice.
+- Posts that fail stay `failed` and are not auto-retried by the scheduler
+  (manual retry from the UI still works). A claim interrupted mid-flight
+  (crash/timeout) is reclaimed back to `failed` after 15 minutes. Published
+  posts are immutable.
 - When the `posting_enabled` setting is `"false"`, ticks still run but skip
   publishing and record `{"skipped_reason": "posting_disabled"}`.
 - **Fill Queue From Drafts** auto-schedules the oldest drafts into
   `posting_hours` (UTC, comma-separated `HH:MM`) slots for the next 7 days,
   capped at `posts_per_day` per calendar day, skipping past slots.
+
+## Feature map
+
+The dashboard has 8 pages: **Dashboard, Products, Posts, AI Studio, Groups,
+Accounts, Activity Logs, Settings**.
+
+### Content & publishing
+- **AI Studio** generates captions, hashtags and 2–5 variations per product with
+  a chosen tone (friendly/funny/urgent/inspirational/professional). Provider
+  fallback (Groq ⇄ OpenAI) plus a deterministic **mock mode**
+  (`AI_MOCK_MODE=true`) for offline work.
+- **Products** are the POD items (title, niche, design/mockup/store URLs, price,
+  tags, status). **Posts** are captions + hashtags + optional image, moving
+  through `draft → scheduled → publishing → published` / `failed`. Posts can be
+  duplicated, scheduled, unscheduled, bulk-deleted, and soft-restored from logs.
+- **Publishing** goes through the Graph API. A post is atomically *claimed*
+  before the network call, so a manual **Publish** and a scheduler tick can never
+  double-post. Failures stay `failed` (manual retry works).
+
+### Group Growth & Intent DM Engine (`/groups` + AI Studio panel)
+- **Link-free group post generator** for car/bike niches using a psychology
+  framework (US/UK/EU subcultures, identity triggers, indirect selling). Posts
+  are scrubbed of links/sales pitch by the reach-down shield and synonym-spun so
+  every output is unique.
+- **Auto-queue**: "Auto-Generate Daily Batch" drops 5 distinct posts into the
+  queue for 1-click Copy → paste into Facebook groups.
+- **Lead funnel**: paste group comments into **Smart Capture**, which parses,
+  classifies intent (High/Medium/Low) and saves leads. Each lead follows a
+  two-step DM funnel — **Message 1 is zero-link**, **Message 2 carries the link
+  only after the lead replies** — with status flow
+  `unsent → step1_sent → step2_sent/replied → follow_up_sent → converted`.
+- **Cadence helper** shows a randomized 3–5 minute safety delay between actions.
+- **Group Health**: daily snapshots (members/new/posts/comments/leads/revenue),
+  live funnel charts, weekly digest with deltas, and per-template performance.
+- **Revenue tracker** logs `$` per conversion (shirt/hoodie/mug) and rolls up
+  ROI on the Dashboard.
+
+### DM Safety (anti-spam)
+- Minimum M1→M2 gap (`dm_min_gap_seconds`, default 300s), per-account hourly and
+  daily DM caps (`dm_hourly_cap` / `dm_daily_cap`, atomic counters). The DM
+  modal shows a live countdown and the server returns `409` with a reason when a
+  send would break a cap.
+
+### Multi-account & persona rotation
+- **Accounts** page manages Facebook pages/profiles with a persona
+  (name/avatar/bio/tone), niche focus, priority and health state
+  (active/warned/restricted/banned). Rotation modes: `priority`, `round_robin`,
+  `niche_match`. Group collisions are prevented via `account_groups_blocked`.
+- Gated by `multi_account_enabled` (default **OFF** — single-account behavior is
+  preserved). Warning/ban/restore and orphan auto-assignment are supported.
+
+### Operations
+- **Backups**: automatic daily SQLite snapshot (retained N days) plus manual
+  Run/Download/Delete/**Restore**. Restore takes a pre-restore snapshot and
+  reports `restart_required`.
+- **Kill switch**: an emergency stop that blocks publishing at *both* the
+  scheduler and the publisher layers.
+- **Token expiry tracking** (30/14/7/1-day warnings), **AI usage & cost**
+  rollups, **system health** snapshot (DB/FB/AI/queue/backup/disk/accounts) and
+  **log retention** pruning.
+- **Activity Logs** capture deletions with snapshots so products/posts/leads/
+  queue items can be restored from the Logs page.
 
 ## Environment variables
 
@@ -98,8 +163,9 @@ At a high level:
 |---|---|---|
 | APP_NAME | POD Facebook Automation Dashboard | Display name |
 | APP_ENV | development | Enables dev seed + CORS + reload |
-| DEBUG | true | Uvicorn reload flag |
-| HOST / PORT | 127.0.0.1 / 8000 | Server bind |
+| DEBUG | false | Uvicorn reload flag |
+| HOST / PORT | 127.0.0.1 / 8000 | Server bind (loopback only) |
+| CORS_ORIGINS | localhost:8000/3000/5173/8080 | Allowed browser origins (JSON list) |
 | DATABASE_URL | sqlite:///./data/automation.db | SQLAlchemy URL |
 | AI_PROVIDER | groq | Primary AI provider |
 | GROQ_API_KEY / OPENAI_API_KEY | (empty) | AI keys (never exposed) |
@@ -115,6 +181,12 @@ At a high level:
 | SCHEDULER_BATCH_SIZE | 5 | Posts per tick |
 | PUBLISH_MAX_ATTEMPTS | 3 | Auto-retry cap |
 | LOG_LEVEL | INFO | Logging verbosity |
+
+> **Security:** `.env` is git-ignored and must never be committed. If a provider
+> key (`GROQ_API_KEY` / `OPENAI_API_KEY`) or the Facebook token was ever
+> committed, pasted, or shared, **rotate it** at the provider and update `.env`.
+> Unknown `.env` keys now fail startup (`extra="forbid"`) so typos can't
+> silently fall back to defaults.
 
 ## Troubleshooting
 
@@ -134,11 +206,24 @@ At a high level:
 - **AI 502**: the provider call failed — check the key, model name, and
   network, then retry.
 
+## Development
+
+```bash
+pip install -r requirements-dev.txt
+pytest            # unit + API tests (isolated temp DB, mock AI, dry-run)
+ruff check app    # lint
+python -m compileall -q app   # byte-compile
+```
+
+`make check` runs all of the above plus a JavaScript syntax check. CI
+(`.github/workflows/ci.yml`) runs the same on every push/PR.
+
 ## Project tree
 
 ```text
 pod-automation/
 ├── app/
+│   ├── __init__.py
 │   ├── main.py
 │   ├── config.py
 │   ├── logging_config.py
@@ -154,7 +239,12 @@ pod-automation/
 │   │   ├── post.py
 │   │   ├── ai_generation.py
 │   │   ├── activity_log.py
-│   │   └── app_setting.py
+│   │   ├── app_setting.py
+│   │   ├── fb_account.py
+│   │   ├── group_lead.py
+│   │   ├── group_post_queue.py
+│   │   ├── group_stats.py
+│   │   └── system.py
 │   ├── schemas/
 │   │   ├── __init__.py
 │   │   ├── common.py
@@ -166,13 +256,26 @@ pod-automation/
 │   │   ├── ai.py
 │   │   ├── ai_generation.py
 │   │   ├── activity_log.py
-│   │   └── app_setting.py
+│   │   ├── app_setting.py
+│   │   ├── group_lead.py
+│   │   └── group_queue.py
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── product_service.py
 │   │   ├── post_service.py
 │   │   ├── ai_generation_service.py
+│   │   ├── ai_usage_service.py
+│   │   ├── account_service.py
+│   │   ├── backup_service.py
+│   │   ├── dm_safety.py
+│   │   ├── group_service.py
+│   │   ├── group_shield.py
+│   │   ├── group_stats.py
+│   │   ├── health_service.py
+│   │   ├── lead_lifecycle.py
 │   │   ├── log_service.py
+│   │   ├── maintenance_service.py
+│   │   ├── persona_service.py
 │   │   ├── settings_service.py
 │   │   ├── ai/
 │   │   │   ├── __init__.py
@@ -198,6 +301,7 @@ pod-automation/
 │   │       └── automation.py
 │   ├── routers/
 │   │   ├── __init__.py
+│   │   ├── deps.py
 │   │   ├── health.py
 │   │   ├── pages.py
 │   │   ├── products.py
@@ -207,13 +311,19 @@ pod-automation/
 │   │   ├── settings.py
 │   │   ├── dashboard.py
 │   │   ├── facebook.py
-│   │   └── automation.py
+│   │   ├── automation.py
+│   │   ├── groups.py
+│   │   ├── accounts.py
+│   │   ├── stats.py
+│   │   └── system.py
 │   ├── templates/
 │   │   ├── base.html
-│   │   ├── index.html
+│   │   ├── dashboard.html
 │   │   ├── products.html
 │   │   ├── posts.html
 │   │   ├── studio.html
+│   │   ├── groups.html
+│   │   ├── accounts.html
 │   │   ├── logs.html
 │   │   └── settings.html
 │   └── static/
@@ -225,15 +335,33 @@ pod-automation/
 │           ├── products.js
 │           ├── posts.js
 │           ├── studio.js
+│           ├── groups.js
+│           ├── accounts.js
 │           ├── logs.js
 │           └── settings.js
+├── tests/
+│   ├── conftest.py
+│   ├── test_ai_classify.py
+│   ├── test_confirm_header.py
+│   ├── test_kill_switch.py
+│   ├── test_publisher.py
+│   ├── test_redaction.py
+│   └── test_validation.py
 ├── data/
 │   └── .gitkeep
 ├── logs/
 │   └── .gitkeep
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── .env.example
 ├── .gitignore
+├── .python-version
+├── AUDIT.md
+├── Makefile
+├── pyproject.toml
 ├── requirements.txt
+├── requirements-dev.txt
 ├── run.py
 └── README.md
 ```

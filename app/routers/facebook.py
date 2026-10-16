@@ -21,7 +21,7 @@ async def facebook_status_endpoint() -> FacebookStatus:
     """Return Facebook configuration and token validity (no secrets)."""
     try:
         return FacebookStatus(**await get_facebook_status())
-    except Exception as exc:
+    except Exception:
         logger.exception("Facebook status endpoint failed.")
         raise HTTPException(status_code=502, detail="Facebook status check failed.")
 
@@ -37,7 +37,7 @@ async def facebook_test_connection_endpoint(db: Session = Depends(get_db)) -> Fa
     try:
         # No cache layer exists today, so test-connection always verifies live.
         status = FacebookStatus(**await get_facebook_status())
-    except Exception as exc:
+    except Exception:
         logger.exception("Facebook test-connection endpoint failed.")
         raise HTTPException(status_code=502, detail="Facebook verification failed.")
     if status.token_valid:

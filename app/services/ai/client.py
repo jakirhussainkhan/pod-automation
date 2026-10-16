@@ -2,17 +2,24 @@
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.services import ai_generation_service
 from app.services.ai.base import AIResult
-from app.services.ai.exceptions import AIAuthError, AIProviderError, AIRateLimitError
+from app.services.ai.exceptions import (
+    AIAuthError,
+    AIProviderError,
+    AIRateLimitError,
+    AIResponseParseError,
+)
 from app.services.ai.factory import get_provider_chain
 
 logger = logging.getLogger("pod-automation")
+
+_RETRY_NOTE = "Your previous reply was not valid JSON. Reply with ONLY the JSON object."
 
 
 def _safe_record(db: Session, *args, **kwargs) -> None:
@@ -130,4 +137,77 @@ def run_with_fallback(
                 logger.warning("AI attempt failed: %s", exc)
                 if attempt < max_retries and not settings.AI_MOCK_MODE:
                     time.sleep(2 ** (attempt - 1))
+    raise AIProviderError("all", "All AI providers failed: " + "; ".join(failures))
+
+
+def run_validated(
+    db: Session,
+    system_prompt: str,
+    user_prompt: str,
+    validate: Callable[[AIResult], Any],
+    json_mode: bool = True,
+    product_id: Optional[int] = None,
+    call_type: str = "other",
+) -> tuple[AIResult, Any]:
+    """Like ``run_with_fallback`` but validates the reply inside the retry loop.
+
+    A response that parses/validates incorrectly is treated like a provider
+    failure: the call is retried (with a JSON nudge) and then falls back to the
+    next provider. Returns the raw result plus the validated payload so callers
+    keep provider/model provenance.
+    """
+    settings = get_settings()
+    chain = get_provider_chain()
+    max_retries = max(1, settings.AI_MAX_RETRIES)
+    combined = _combined_prompt(system_prompt, user_prompt)
+    failures: list[str] = []
+    for provider in chain:
+        prompt = user_prompt
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = provider.complete(
+                    system_prompt=system_prompt,
+                    user_prompt=prompt,
+                    temperature=settings.AI_TEMPERATURE,
+                    max_tokens=settings.AI_MAX_TOKENS,
+                    json_mode=json_mode,
+                )
+            except AIAuthError as exc:
+                _safe_record(
+                    db, product_id, combined, f"ERROR: {exc}", provider.name,
+                    provider.model, None, False, call_type=call_type,
+                )
+                failures.append(f"{provider.name} auth failed: {exc}")
+                logger.warning("AI auth failed, skipping retries: %s", exc)
+                break
+            except (AIRateLimitError, AIProviderError) as exc:
+                _safe_record(
+                    db, product_id, combined, f"ERROR: {exc}", provider.name,
+                    provider.model, None, False, call_type=call_type,
+                )
+                failures.append(
+                    f"{provider.name} attempt {attempt}/{max_retries}: {exc}"
+                )
+                logger.warning("AI attempt failed: %s", exc)
+                if attempt < max_retries and not settings.AI_MOCK_MODE:
+                    time.sleep(2 ** (attempt - 1))
+                continue
+            try:
+                payload = validate(result)
+            except AIResponseParseError as exc:
+                _safe_record(
+                    db, product_id, combined, result.text, provider.name,
+                    provider.model, result.tokens_used, False, call_type=call_type,
+                )
+                failures.append(f"{provider.name} invalid response: {exc}")
+                logger.warning("AI response failed validation: %s", exc)
+                prompt = user_prompt + "\n\n" + _RETRY_NOTE
+                if attempt < max_retries and not settings.AI_MOCK_MODE:
+                    time.sleep(2 ** (attempt - 1))
+                continue
+            _safe_record(
+                db, product_id, combined, result.text, provider.name,
+                provider.model, result.tokens_used, True, call_type=call_type,
+            )
+            return result, payload
     raise AIProviderError("all", "All AI providers failed: " + "; ".join(failures))

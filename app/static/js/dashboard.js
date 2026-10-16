@@ -138,7 +138,7 @@
       msg.className = "text-sm text-gray-900 dark:text-slate-100";
       msg.textContent = entry.description || entry.message || entry.event || "Activity";
       var meta = document.createElement("p");
-      meta.className = "text-xs text-gray-400 dark:text-slate-500 mt-1";
+      meta.className = "text-xs text-gray-500 dark:text-slate-400 mt-1";
       meta.textContent = (entry.event || entry.event_type || "event") + " · " + relativeTime(entry.created_at);
       meta.title = entry.created_at || "";
       body.appendChild(msg);
@@ -300,13 +300,17 @@
     var groupLabel = document.createElement("label");
     groupLabel.className = "field-label";
     groupLabel.textContent = "Group name (optional)";
+    groupLabel.setAttribute("for", "smart-capture-group");
     var groupInput = document.createElement("input");
+    groupInput.id = "smart-capture-group";
     groupInput.className = "field-input";
     groupInput.placeholder = "e.g. Mustang Fans";
     var textLabel = document.createElement("label");
     textLabel.className = "field-label";
     textLabel.textContent = "Comments";
+    textLabel.setAttribute("for", "smart-capture-comments");
     var area = document.createElement("textarea");
+    area.id = "smart-capture-comments";
     area.className = "field-input";
     area.rows = 8;
     area.placeholder = "Alex: where can I buy this?\nSam - love this design!";

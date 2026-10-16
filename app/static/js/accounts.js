@@ -120,7 +120,7 @@
     var head = document.createElement("div");
     head.className = "flex items-center gap-3 mb-2";
     var avatar = document.createElement("div");
-    avatar.className = "w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold flex-shrink-0";
+    avatar.className = "w-10 h-10 rounded-full bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900 flex items-center justify-center font-bold flex-shrink-0";
     var label = account.persona_name || account.name || "?";
     avatar.textContent = label.trim().charAt(0).toUpperCase();
     avatar.title = label;
@@ -267,6 +267,8 @@
         input.value = source[key] === null || source[key] === undefined ? "" : String(source[key]);
       }
       inputs[key] = input;
+      input.id = "acct-field-" + key;
+      lab.setAttribute("for", input.id);
       wrap.appendChild(lab);
       wrap.appendChild(input);
       grid.appendChild(wrap);
@@ -520,7 +522,7 @@
           var card = document.getElementById("account-" + hash);
           if (card && card.scrollIntoView) {
             card.scrollIntoView({ block: "center" });
-            card.classList.add("ring-2", "ring-indigo-500");
+            card.classList.add("ring-2", "ring-gray-500");
           }
         }, 600);
       }

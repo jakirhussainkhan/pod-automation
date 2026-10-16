@@ -2,11 +2,11 @@
 
 import logging
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from typing import Optional
 
 from app.database.session import get_db
 from app.services import group_stats as stats_service

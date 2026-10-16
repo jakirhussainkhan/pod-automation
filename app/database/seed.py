@@ -80,22 +80,41 @@ def _mark_seed_done(db) -> None:
 
 
 def backfill_demo_flags() -> None:
-    """Tag pre-hardening demo rows (created before is_demo) idempotently."""
+    """Tag pre-hardening demo rows (created before is_demo) idempotently.
+
+    Matches on the demo *content* AND the placeholder ``example.com`` URLs so a
+    user row that merely reuses a demo title/caption can never be flagged as
+    demo (and then purged by "clear demo data").
+    """
     db = SessionLocal()
     try:
         demo_titles = {item["product"]["title"] for item in DEMO_PRODUCTS_WITH_POSTS}
+        demo_store_urls = {
+            item["product"]["store_url"] for item in DEMO_PRODUCTS_WITH_POSTS
+        }
         demo_captions = {item["post"]["caption"] for item in DEMO_PRODUCTS_WITH_POSTS}
+        demo_mockups = {
+            item["product"]["mockup_url"] for item in DEMO_PRODUCTS_WITH_POSTS
+        }
         updated = 0
-        if demo_titles:
+        if demo_titles and demo_store_urls:
             updated += (
                 db.query(Product)
-                .filter(Product.title.in_(demo_titles), Product.is_demo.is_(False))
+                .filter(
+                    Product.title.in_(demo_titles),
+                    Product.store_url.in_(demo_store_urls),
+                    Product.is_demo.is_(False),
+                )
                 .update({Product.is_demo: True}, synchronize_session=False)
             )
-        if demo_captions:
+        if demo_captions and demo_mockups:
             updated += (
                 db.query(Post)
-                .filter(Post.caption.in_(demo_captions), Post.is_demo.is_(False))
+                .filter(
+                    Post.caption.in_(demo_captions),
+                    Post.image_url.in_(demo_mockups),
+                    Post.is_demo.is_(False),
+                )
                 .update({Post.is_demo: True}, synchronize_session=False)
             )
         if updated:
@@ -117,7 +136,6 @@ def seed_demo_data() -> None:
         flag = db.query(AppSetting).filter(AppSetting.key == _SEED_FLAG).first()
         if flag is not None and (flag.value or "").lower() == "true":
             logger.info("Demo seed already completed, skipping seed.")
-            db.close()
             backfill_demo_flags()
             return
         existing = db.query(Product).count()

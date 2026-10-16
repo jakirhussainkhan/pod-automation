@@ -28,6 +28,7 @@
   ];
 
   var postingHours = [];
+  var savedSnapshot = "";
 
   /**
    * Highlight the active theme button and update the helper text.
@@ -40,6 +41,7 @@
       var active = btn.getAttribute("data-theme-value") === preference;
       btn.classList.toggle("pill-active", active);
       btn.setAttribute("aria-checked", active ? "true" : "false");
+      btn.setAttribute("tabindex", active ? "0" : "-1");
     });
     var hint = document.getElementById("theme-current");
     if (hint) {
@@ -93,6 +95,23 @@
         });
       }
     );
+    // Arrow keys move selection within the radiogroup (WAI-ARIA pattern).
+    wrap.addEventListener("keydown", function (event) {
+      var nav = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"];
+      if (nav.indexOf(event.key) === -1) {
+        return;
+      }
+      var radios = Array.prototype.slice.call(wrap.querySelectorAll("[data-theme-value]"));
+      var idx = radios.indexOf(document.activeElement);
+      if (idx === -1) {
+        return;
+      }
+      event.preventDefault();
+      var dir = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+      var next = radios[(idx + dir + radios.length) % radios.length];
+      next.focus();
+      applyPreference(next.getAttribute("data-theme-value"));
+    });
     syncThemeOptions(currentPreference(), currentEffective());
     document.addEventListener("pod-theme-change", function (event) {
       var detail = (event && event.detail) || {};
@@ -266,6 +285,22 @@
   }
 
   /**
+   * Show an inline error in place of a card's loading skeleton, so a failed
+   * card load never leaves a blank card.
+   * @param {string} loadingId - Skeleton element id.
+   * @param {string} message - Error message.
+   */
+  function showCardError(loadingId, message) {
+    var el = document.getElementById(loadingId);
+    if (!el) {
+      return;
+    }
+    el.className = "text-sm text-red-600 dark:text-red-300 py-2";
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  /**
    * Render posting hour chips with remove buttons.
    */
   function renderHourChips() {
@@ -273,7 +308,7 @@
     wrap.innerHTML = "";
     if (postingHours.length === 0) {
       var none = document.createElement("span");
-      none.className = "text-xs text-gray-400 dark:text-slate-500";
+      none.className = "text-xs text-gray-500 dark:text-slate-400";
       none.textContent = "No hours set.";
       wrap.appendChild(none);
       return;
@@ -365,21 +400,15 @@
         });
         var restore = smallBtn("Restore", "Restore this backup (app restart required)");
         restore.addEventListener("click", async function () {
-          var confirmed = await window.confirmDialog(
-            "Restore backup " + row.filename + "? The app MUST be restarted afterwards.",
-            { confirmText: "Restore", danger: true }
+          var typed = await window.promptDialog(
+            "Restore backup " + row.filename + "? This replaces the live database — the app MUST be restarted afterwards.",
+            "RESTORE BACKUP",
+            { confirmText: "Restore" }
           );
-          if (!confirmed) {
-            return;
-          }
-          var typed = null;
-          try {
-            typed = window.prompt("Type RESTORE BACKUP to confirm the restore:");
-          } catch (err) {
-            typed = null;
-          }
           if (typed !== "RESTORE BACKUP") {
-            window.toast("Restore cancelled: you must type exactly RESTORE BACKUP.", "info");
+            if (typed !== null) {
+              window.toast("Restore cancelled: you must type exactly RESTORE BACKUP.", "info");
+            }
             return;
           }
           try {
@@ -495,6 +524,7 @@
     try {
       var values = await window.apiFetch("/api/settings");
       fillForm(values);
+      savedSnapshot = JSON.stringify(readForm());
       loading.classList.add("hidden");
       content.classList.remove("hidden");
     } catch (err) {
@@ -523,8 +553,7 @@
       document.getElementById("ai-info-loading").classList.add("hidden");
       document.getElementById("ai-info").classList.remove("hidden");
     } catch (err) {
-      document.getElementById("ai-info-loading").classList.add("hidden");
-      window.toast("Could not load AI status: " + err.message, "error");
+      showCardError("ai-info-loading", "Could not load AI status: " + err.message);
     }
   }
 
@@ -558,8 +587,7 @@
       document.getElementById("fb-info-loading").classList.add("hidden");
       document.getElementById("fb-info").classList.remove("hidden");
     } catch (err) {
-      document.getElementById("fb-info-loading").classList.add("hidden");
-      window.toast("Could not load Facebook status: " + err.message, "error");
+      showCardError("fb-info-loading", "Could not load Facebook status: " + err.message);
     }
   }
 
@@ -594,8 +622,7 @@
       document.getElementById("ap-loading").classList.add("hidden");
       document.getElementById("ap-info").classList.remove("hidden");
     } catch (err) {
-      document.getElementById("ap-loading").classList.add("hidden");
-      window.toast("Could not load Automation status: " + err.message, "error");
+      showCardError("ap-loading", "Could not load Automation status: " + err.message);
     }
   }
 
@@ -614,6 +641,7 @@
         body: JSON.stringify(readForm())
       });
       fillForm(saved);
+      savedSnapshot = JSON.stringify(readForm());
       window.toast("Settings saved.", "success");
     } catch (err) {
       if (err && err.status === 422) {
@@ -622,11 +650,11 @@
           return message.toLowerCase().indexOf(key.replace(/_/g, " ")) !== -1 ||
             message.toLowerCase().indexOf(key) !== -1;
         });
-        if (matched.length > 0) {
-          matched.forEach(function (key) {
-            showError(key, message);
-          });
+        if (matched.length === 1) {
+          showError(matched[0], message);
         } else {
+          // Ambiguous (or no) field match: show a general toast instead of
+          // splatting the same message onto many unrelated fields.
           window.toast(message, "error");
         }
       } else {
@@ -640,7 +668,18 @@
   document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("settings-form").addEventListener("submit", onSave);
     document.getElementById("settings-retry").addEventListener("click", loadSettings);
-    document.getElementById("settings-reset").addEventListener("click", loadSettings);
+    document.getElementById("settings-reset").addEventListener("click", async function () {
+      if (savedSnapshot && JSON.stringify(readForm()) !== savedSnapshot) {
+        var confirmed = await window.confirmDialog(
+          "Discard unsaved changes and reload the saved settings?",
+          { confirmText: "Discard", danger: true }
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+      loadSettings();
+    });
     document.getElementById("posting-hours-add").addEventListener("click", function () {
       var input = document.getElementById("posting-hours-input");
       var value = input.value.trim();

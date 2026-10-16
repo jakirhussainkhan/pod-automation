@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.product import Product
+from app.routers.deps import require_destructive_confirmation
 from app.schemas.common import Page
 from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.services import log_service, product_service
@@ -78,7 +79,9 @@ def update_product_endpoint(
 
 @router.delete("/{product_id}", status_code=204)
 def delete_product_endpoint(
-    product_id: int, db: Session = Depends(get_db)
+    product_id: int,
+    db: Session = Depends(get_db),
+    _confirmed: None = Depends(require_destructive_confirmation),
 ) -> Response:
     """Delete a product and log the event with a restorable snapshot."""
     product = product_service.get_product(db, product_id)

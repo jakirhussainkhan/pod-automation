@@ -13,9 +13,6 @@ from app.models.system import DbBackup
 
 logger = logging.getLogger("pod-automation")
 
-_RESTORE_CONFIRM_TEXT = "RESTORE BACKUP"
-"""Exact confirmation string required for backup restores."""
-
 
 def _source_db_path() -> Path:
     """Resolve the live SQLite file from DATABASE_URL."""

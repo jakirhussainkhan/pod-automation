@@ -229,8 +229,12 @@
       return "\u2014";
     }
     return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short"
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short"
     }).format(date);
   }
 
@@ -378,19 +382,17 @@
     );
     var body = { wipe_all: false };
     if (wipeAll) {
-      var typed = null;
-      try {
-        typed = window.prompt('Type WIPE ALL DATA to permanently wipe all data:');
-      } catch (err) {
-        typed = null;
-      }
-      if (typed !== null && typed !== "WIPE ALL DATA") {
-        toast('Full wipe cancelled: you must type exactly "WIPE ALL DATA".', "info");
-        return;
-      }
+      var typed = await promptDialog(
+        "Type WIPE ALL DATA to permanently wipe ALL data (products, posts, leads, queue). This cannot be undone.",
+        "WIPE ALL DATA",
+        { confirmText: "Wipe Everything" }
+      );
       if (typed === "WIPE ALL DATA") {
         body = { wipe_all: true, confirmation: "WIPE ALL DATA" };
       } else {
+        if (typed !== null) {
+          toast('Full wipe cancelled: you must type exactly "WIPE ALL DATA".', "info");
+        }
         return;
       }
     }
@@ -454,16 +456,53 @@
       trigger.focus();
     }
     delete modalTriggers[id];
+    // If the confirm dialog is dismissed via Escape/backdrop, resolve the
+    // pending promise with false so `await confirmDialog()` never hangs.
+    if (id === "confirm-modal") {
+      cancelConfirm();
+    }
+    if (id === "prompt-modal") {
+      cancelPrompt();
+    }
   }
 
   // Escape closes the topmost open modal; backdrop clicks close their modal.
   document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape") {
-      return;
-    }
     var open = Array.prototype.slice.call(
       document.querySelectorAll(".modal-backdrop:not([hidden])")
     );
+    // Trap Tab focus inside the topmost open modal.
+    if (event.key === "Tab" && open.length > 0) {
+      var modal = open[open.length - 1];
+      var focusables = Array.prototype.slice
+        .call(
+          modal.querySelectorAll(
+            "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+          )
+        )
+        .filter(function (el) {
+          return !el.disabled && el.offsetParent !== null;
+        });
+      if (focusables.length === 0) {
+        return;
+      }
+      var first = focusables[0];
+      var last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!modal.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
+    if (event.key !== "Escape") {
+      return;
+    }
     if (open.length > 0) {
       closeModal(open[open.length - 1].id);
     }
@@ -476,6 +515,18 @@
   });
 
   var confirmState = { resolve: null };
+
+  /**
+   * Resolve any in-flight confirm with `false`. Called when the confirm modal
+   * is dismissed (Escape, backdrop click, or a superseding confirm call).
+   */
+  function cancelConfirm() {
+    if (confirmState && confirmState.resolve) {
+      var pending = confirmState.resolve;
+      confirmState.resolve = null;
+      pending(false);
+    }
+  }
 
   /**
    * Show the shared confirm dialog.
@@ -495,28 +546,99 @@
     text.textContent = message;
     okBtn.textContent = opts.confirmText || "Confirm";
     okBtn.className = "btn " + (opts.danger ? "btn-danger" : "btn-primary");
-    if (confirmState.resolve) {
-      confirmState.resolve(false);
-      confirmState.resolve = null;
-    }
+    // Supersede any previous confirm (resolves it false before we take over).
+    cancelConfirm();
     return new Promise(function (resolve) {
       confirmState.resolve = resolve;
       function done(value) {
-        closeModal("confirm-modal");
+        // Clear handlers + state first so the closeModal() below can't
+        // re-enter cancelConfirm() and resolve a second time.
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
         confirmState.resolve = null;
+        closeModal("confirm-modal");
         resolve(value);
       }
-      function onOk() {
+      // Direct onclick assignment (not addEventListener) so an Escape-dismissed
+      // dialog can't leak listeners that later double-fire.
+      okBtn.onclick = function () {
         done(true);
-      }
-      function onCancel() {
+      };
+      cancelBtn.onclick = function () {
         done(false);
-      }
-      // { once: true } guarantees stacked dialogs can't double-fire
-      // even if a previous confirm is superseded mid-flight.
-      okBtn.addEventListener("click", onOk, { once: true });
-      cancelBtn.addEventListener("click", onCancel, { once: true });
+      };
       openModal("confirm-modal");
+    });
+  }
+
+  var promptState = { resolve: null };
+
+  /**
+   * Resolve any in-flight prompt with null (dismissed).
+   */
+  function cancelPrompt() {
+    if (promptState && promptState.resolve) {
+      var pending = promptState.resolve;
+      promptState.resolve = null;
+      pending(null);
+    }
+  }
+
+  /**
+   * Show a modal that requires the user to type an exact confirmation string.
+   * Falls back to the native prompt when the modal markup is unavailable.
+   * @param {string} message - Explanatory message.
+   * @param {string} expected - Exact text the user must type.
+   * @param {Object} [options] - Confirm button label.
+   * @returns {Promise<string|null>} Typed value, or null when dismissed.
+   */
+  function promptDialog(message, expected, options) {
+    var opts = options || {};
+    var modal = document.getElementById("prompt-modal");
+    var text = document.getElementById("prompt-modal-message");
+    var input = document.getElementById("prompt-modal-input");
+    var hint = document.getElementById("prompt-modal-hint");
+    var okBtn = document.getElementById("prompt-modal-ok");
+    var cancelBtn = document.getElementById("prompt-modal-cancel");
+    if (!modal || !text || !input || !okBtn || !cancelBtn) {
+      var fallback = null;
+      try {
+        fallback = window.prompt(message);
+      } catch (err) {
+        fallback = null;
+      }
+      return Promise.resolve(fallback);
+    }
+    text.textContent = message;
+    input.value = "";
+    input.placeholder = expected;
+    hint.textContent =
+      'Type "' + expected + '" and click ' + (opts.confirmText || "Confirm") + ", or Cancel.";
+    okBtn.textContent = opts.confirmText || "Confirm";
+    cancelPrompt();
+    return new Promise(function (resolve) {
+      promptState.resolve = resolve;
+      function done(value) {
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+        input.onkeydown = null;
+        promptState.resolve = null;
+        closeModal("prompt-modal");
+        resolve(value);
+      }
+      okBtn.onclick = function () {
+        done(input.value);
+      };
+      cancelBtn.onclick = function () {
+        done(null);
+      };
+      input.onkeydown = function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          done(input.value);
+        }
+      };
+      openModal("prompt-modal");
     });
   }
 
@@ -776,6 +898,7 @@
         backdrop.hidden = true;
       }
       toggle.setAttribute("aria-label", "Open navigation menu");
+      toggle.setAttribute("aria-expanded", "false");
     }
     toggle.addEventListener("click", function () {
       var open = document.body.classList.toggle("sidebar-open");
@@ -786,10 +909,17 @@
         "aria-label",
         open ? "Close navigation menu" : "Open navigation menu"
       );
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
     });
     if (backdrop) {
       backdrop.addEventListener("click", close);
     }
+    // Escape closes the mobile sidebar when it is open.
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+        close();
+      }
+    });
     sidebar.addEventListener("click", function (event) {
       if (event.target && event.target.tagName === "A" && window.innerWidth < 1024) {
         close();
@@ -831,6 +961,7 @@
   window.openModal = openModal;
   window.closeModal = closeModal;
   window.confirmDialog = confirmDialog;
+  window.promptDialog = promptDialog;
   window.setButtonLoading = setButtonLoading;
   window.renderPagination = renderPagination;
   window.copyToClipboard = copyToClipboard;

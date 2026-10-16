@@ -47,7 +47,7 @@
     </div>
     <div class="flex items-center justify-between gap-3">
       <div>
-        <span class="field-label" id="posting-enabled-label">Posting enabled</span>
+        <label class="field-label" id="posting-enabled-label" for="setting-posting-enabled">Posting enabled</label>
         <p class="text-xs text-gray-500 dark:text-slate-400">Master switch for automated posting.</p>
       </div>
       <span class="toggle">
@@ -62,7 +62,7 @@
       <p id="setting-posts-per-day-error" class="field-error hidden"></p>
     </div>
     <div>
-      <span class="field-label" id="posting-hours-label">Posting hours</span>
+      <label class="field-label" id="posting-hours-label" for="posting-hours-input">Posting hours (UTC)</label>
       <div id="posting-hours-chips" class="flex flex-wrap gap-1 mb-2"></div>
       <div class="flex gap-2">
         <input id="posting-hours-input" type="text" class="field-input" placeholder="HH:MM" aria-labelledby="posting-hours-label" />
@@ -118,7 +118,7 @@
       </div>
       <div class="flex items-center justify-between gap-3 mt-3">
         <div>
-          <span class="field-label" id="follow-up-enabled-label">Follow-up engine enabled</span>
+          <label class="field-label" id="follow-up-enabled-label" for="setting-follow-up-enabled">Follow-up engine enabled</label>
           <p class="text-xs text-gray-500 dark:text-slate-400">Master switch for M3 cold-lead follow-ups.</p>
         </div>
         <span class="toggle">
@@ -133,7 +133,7 @@
       <p class="text-xs text-gray-500 dark:text-slate-400 mb-3">Daily snapshots, charts, and the weekly digest.</p>
       <div class="flex items-center justify-between gap-3">
         <div>
-          <span class="field-label" id="stats-auto-compute-label">Auto-fill from live data</span>
+          <label class="field-label" id="stats-auto-compute-label" for="setting-stats-auto-compute">Auto-fill from live data</label>
           <p class="text-xs text-gray-500 dark:text-slate-400">Fill funnel fields from lead timestamps when missing.</p>
         </div>
         <span class="toggle">
@@ -164,7 +164,7 @@
       <div id="token-banner" class="hidden mb-3 text-sm font-medium rounded-lg px-3 py-2" role="status"></div>
       <div class="flex flex-wrap gap-2 mb-3">
         <button id="backup-run-btn" type="button" class="btn btn-primary btn-sm">Run Backup Now</button>
-        <button id="token-refresh-btn" type="button" class="btn btn-secondary btn-sm">I updated the token</button>
+        <button id="token-refresh-btn" type="button" class="btn btn-secondary btn-sm" title="Record now as the token refresh moment (expiry resets to +60 days). Paste the new token into .env yourself.">Mark token refreshed</button>
       </div>
       <div class="overflow-x-auto mb-3">
         <table class="w-full text-sm">
@@ -183,7 +183,7 @@
       </div>
       <div class="flex items-center justify-between gap-3">
         <div>
-          <span class="field-label" id="backup-enabled-label">Scheduled backups</span>
+          <label class="field-label" id="backup-enabled-label" for="setting-backup-enabled">Scheduled backups</label>
           <p class="text-xs text-gray-500 dark:text-slate-400">Daily snapshot at the UTC hour below.</p>
         </div>
         <span class="toggle">
@@ -214,7 +214,7 @@
         <p id="ai-spend-line" class="text-gray-600 dark:text-slate-300">Loading…</p>
       </div>
     </div>
-    <div class="flex justify-end gap-3 pt-2">
+    <div class="sticky bottom-0 z-10 flex justify-end gap-3 pt-3 mt-4 -mx-5 px-5 pb-2 border-t border-gray-200/60 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-b-xl">
       <button id="settings-reset" type="button" class="btn btn-secondary">Reset</button>
       <button id="settings-save" type="submit" class="btn btn-primary">Save Settings</button>
     </div>
@@ -245,7 +245,7 @@
         <dd id="ai-info-openai" class="font-medium"></dd>
       </div>
     </dl>
-    <p class="text-xs text-gray-400 dark:text-slate-500 mt-3">API keys are never displayed. Configure them in the server .env file.</p>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mt-3">API keys are never displayed. Configure them in the server .env file.</p>
   </div>
 </div>
 
@@ -258,7 +258,7 @@
       <button type="button" class="pill" data-theme-value="dark" role="radio" aria-checked="false">Dark</button>
       <button type="button" class="pill" data-theme-value="system" role="radio" aria-checked="false">System</button>
     </div>
-    <p id="theme-current" class="text-xs text-gray-400 dark:text-slate-500 mt-3">Following system setting.</p>
+    <p id="theme-current" class="text-xs text-gray-500 dark:text-slate-400 mt-3">Following system setting.</p>
   </div>
 
   <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 h-fit">
@@ -294,7 +294,7 @@
     </dl>
     <p id="fb-info-error" class="hidden text-sm text-red-600 dark:text-red-400 mt-2"></p>
     <button id="fb-test-btn" type="button" class="btn btn-secondary mt-4">Test Connection</button>
-    <p class="text-xs text-gray-400 dark:text-slate-500 mt-3">The access token is never displayed. Configure it in the server .env file.</p>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mt-3">The access token is never displayed. Configure it in the server .env file.</p>
   </div>
 
   <div class="bg-white/70 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/60 dark:border-slate-700/50 rounded-xl shadow-lg shadow-gray-200/50 dark:shadow-xl dark:shadow-black/20 p-5 h-fit">

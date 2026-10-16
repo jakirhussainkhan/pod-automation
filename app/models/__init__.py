@@ -26,6 +26,7 @@ class PostStatus(str, Enum):
 
     draft = "draft"
     scheduled = "scheduled"
+    publishing = "publishing"
     published = "published"
     failed = "failed"
 

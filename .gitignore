@@ -15,6 +15,8 @@ dist/
 
 # Environment variables (keep .env.example tracked)
 .env
+.env*
+!.env.example
 
 # SQLite databases (keep data/.gitkeep tracked)
 data/*.db
@@ -22,11 +24,28 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 data/*.sqlite
+data/*.sqlite-wal
+data/*.sqlite-shm
 data/*.sqlite3
 data/backups/
+*.sqlite-wal
+*.sqlite-shm
 
 # Log files (keep logs/.gitkeep tracked)
 logs/*.log
+*.log
+*.out
+
+# Test / lint / type caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Editor backups
+*.bak
 
 # IDEs and editors
 .idea/

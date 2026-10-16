@@ -2,10 +2,24 @@
 
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import PostStatus
+
+
+def _validate_image_url(value: Optional[str]) -> Optional[str]:
+    """Accept only http(s) image URLs; reject blank/other schemes."""
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if cleaned == "":
+        return None
+    parsed = urlparse(cleaned)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("must be a valid http(s) image URL")
+    return cleaned
 
 
 class PostBase(BaseModel):
@@ -15,7 +29,6 @@ class PostBase(BaseModel):
     caption: str = Field(min_length=1)
     hashtags: list[str] = Field(default_factory=list)
     image_url: Optional[str] = Field(default=None, max_length=500)
-    status: PostStatus = PostStatus.draft
     scheduled_at: Optional[datetime] = None
 
     @field_validator("caption")
@@ -26,9 +39,19 @@ class PostBase(BaseModel):
             raise ValueError("must not be blank")
         return value
 
+    @field_validator("image_url")
+    @classmethod
+    def _image_url_valid(cls, value: Optional[str]) -> Optional[str]:
+        """Reject non-http(s) URLs (SSRF/validation hardening)."""
+        return _validate_image_url(value)
+
 
 class PostCreate(PostBase):
-    """Schema for creating a post."""
+    """Schema for creating a post.
+
+    A new post is always a draft — the client cannot forge a status such as
+    ``published`` (that only happens through the publish pipeline).
+    """
 
 
 class PostUpdate(BaseModel):
@@ -49,6 +72,22 @@ class PostUpdate(BaseModel):
             raise ValueError("must not be blank")
         return value
 
+    @field_validator("image_url")
+    @classmethod
+    def _image_url_valid(cls, value: Optional[str]) -> Optional[str]:
+        """Reject non-http(s) URLs (SSRF/validation hardening)."""
+        return _validate_image_url(value)
+
+    @field_validator("status")
+    @classmethod
+    def _status_not_reserved(cls, value: Optional[PostStatus]) -> Optional[PostStatus]:
+        """Block directly setting pipeline-owned statuses."""
+        if value in (PostStatus.published, PostStatus.publishing):
+            raise ValueError(
+                "status 'published'/'publishing' is managed by the publish pipeline"
+            )
+        return value
+
 
 class PostRead(PostBase):
     """Schema for reading a post."""
@@ -56,6 +95,7 @@ class PostRead(PostBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    status: PostStatus
     published_at: Optional[datetime] = None
     facebook_post_id: Optional[str] = None
     error_message: Optional[str] = None

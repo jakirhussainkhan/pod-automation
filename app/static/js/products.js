@@ -4,6 +4,7 @@
 
   var PAGE_SIZE = 10;
   var state = { skip: 0, total: 0, search: "", niche: "", status: "" };
+  var loadSeq = 0;
 
   /**
    * Build the products query string from current state.
@@ -23,6 +24,18 @@
       params.set("status", state.status);
     }
     return params.toString();
+  }
+
+  /**
+   * Format a price as $0.00 (or an em dash when missing/invalid).
+   * @param {number|string|null} value - Raw price.
+   * @returns {string} Formatted price.
+   */
+  function formatPrice(value) {
+    var n = Number(value);
+    return value === null || value === undefined || !isFinite(n)
+      ? "\u2014"
+      : "$" + n.toFixed(2);
   }
 
   /**
@@ -128,7 +141,7 @@
       nicheCell.textContent = product.niche;
       var priceCell = document.createElement("td");
       priceCell.className = "px-4 py-3 text-gray-900 dark:text-slate-100";
-      priceCell.textContent = product.price === null || product.price === undefined ? "\u2014" : "$" + product.price;
+      priceCell.textContent = formatPrice(product.price);
       var statusCell = document.createElement("td");
       statusCell.className = "px-4 py-3";
       statusCell.innerHTML = window.statusBadge(product.status);
@@ -162,7 +175,9 @@
       cardSub.textContent =
         product.niche +
         " \u00b7 " +
-        (product.price === null || product.price === undefined ? "no price" : "$" + product.price);
+        (product.price === null || product.price === undefined
+          ? "no price"
+          : formatPrice(product.price));
       cardTitle.appendChild(cardH);
       cardTitle.appendChild(cardSub);
       cardTop.appendChild(cardTitle);
@@ -194,8 +209,12 @@
     empty.classList.add("hidden");
     tableWrap.classList.add("hidden");
     cards.innerHTML = "";
+    var mySeq = ++loadSeq;
     try {
       var data = await window.apiFetch("/api/products?" + queryString());
+      if (mySeq !== loadSeq) {
+        return;
+      }
       state.total = data.total;
       loading.classList.add("hidden");
       if (data.items.length === 0) {
@@ -213,6 +232,9 @@
         }
       );
     } catch (err) {
+      if (mySeq !== loadSeq) {
+        return;
+      }
       loading.classList.add("hidden");
       document.getElementById("products-error-text").textContent =
         "Could not load products: " + err.message;
@@ -510,7 +532,10 @@
     }
     window.setButtonLoading(btn, true, "Deleting\u2026");
     try {
-      await window.apiFetch("/api/products/" + id, { method: "DELETE" });
+      await window.apiFetch("/api/products/" + id, {
+        method: "DELETE",
+        headers: { "X-Confirm-Delete": "true" }
+      });
       window.toast("Product deleted.", "success");
       window.closeModal("product-modal");
       state.skip = 0;

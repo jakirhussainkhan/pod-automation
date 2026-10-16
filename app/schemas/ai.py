@@ -4,7 +4,15 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.ai.prompts import ALLOWED_TONES, normalize_tone
+from app.services.ai.prompts import ALLOWED_TONES
+
+
+def _validate_tone(value: str) -> str:
+    """Return a normalized tone, or raise for an unknown one (→ 422)."""
+    cleaned = (value or "").strip().lower()
+    if cleaned not in ALLOWED_TONES:
+        raise ValueError(f"tone must be one of: {', '.join(ALLOWED_TONES)}")
+    return cleaned
 
 
 class GeneratePostRequest(BaseModel):
@@ -15,9 +23,9 @@ class GeneratePostRequest(BaseModel):
 
     @field_validator("tone")
     @classmethod
-    def _normalize_tone(cls, value: str) -> str:
-        """Fall back to 'friendly' for unknown tones."""
-        return normalize_tone(value)
+    def _tone_allowed(cls, value: str) -> str:
+        """Reject unknown tones instead of silently defaulting."""
+        return _validate_tone(value)
 
 
 class RegenerateCaptionRequest(BaseModel):
@@ -27,9 +35,9 @@ class RegenerateCaptionRequest(BaseModel):
 
     @field_validator("tone")
     @classmethod
-    def _normalize_tone(cls, value: str) -> str:
-        """Fall back to 'friendly' for unknown tones."""
-        return normalize_tone(value)
+    def _tone_allowed(cls, value: str) -> str:
+        """Reject unknown tones instead of silently defaulting."""
+        return _validate_tone(value)
 
 
 class VariationsRequest(BaseModel):

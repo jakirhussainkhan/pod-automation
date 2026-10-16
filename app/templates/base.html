@@ -24,17 +24,49 @@
       }
     })();
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
-    /* Enable Tailwind class-based dark mode for `dark:` variants. */
-    tailwind.config = { darkMode: "class" };
+    /* Class-based dark mode + a strictly monochrome palette. The cool families
+       (`slate`, `gray`) AND the status families (red/amber/green/emerald) are
+       remapped to one neutral ramp, so every utility renders pure grey. This is
+       the single place that defines the theme's colour — no per-template edits. */
+    (function () {
+      var GREY = {
+        50: "#fafafa",
+        100: "#f5f5f5",
+        200: "#e5e5e5",
+        300: "#d4d4d4",
+        400: "#a3a3a3",
+        500: "#737373",
+        600: "#525252",
+        700: "#404040",
+        800: "#262626",
+        900: "#171717",
+        950: "#0a0a0a"
+      };
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              slate: GREY,
+              gray: GREY,
+              red: GREY,
+              amber: GREY,
+              green: GREY,
+              emerald: GREY
+            }
+          }
+        }
+      };
+    })();
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=4.0" />
+  <link rel="stylesheet" href="/static/css/app.css?v=4.4" />
 </head>
-<body class="bg-slate-100 text-gray-900 dark:bg-[#050811] dark:text-slate-100 antialiased">
+<body class="bg-slate-100 text-gray-900 dark:bg-[#0a0a0a] dark:text-slate-100 antialiased">
   <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
   <div class="flex min-h-screen">
-    <aside id="sidebar" class="sidebar bg-white/80 dark:bg-[#090d18]/95 backdrop-blur-xl border-r border-gray-200/60 dark:border-slate-800/80 shadow-sm dark:shadow-2xl dark:shadow-black/40 text-gray-900 dark:text-slate-200" aria-label="Main navigation">
+    <aside id="sidebar" class="sidebar bg-white/80 dark:bg-[#111111]/95 backdrop-blur-xl border-r border-gray-200/60 dark:border-slate-800/80 shadow-sm dark:shadow-2xl dark:shadow-black/40 text-gray-900 dark:text-slate-200" aria-label="Main navigation">
       <div class="sidebar-brand px-6 py-5 border-b border-gray-200/60 dark:border-slate-800/80">
         <h1 class="text-xl font-bold tracking-tight text-gray-900 dark:text-slate-50">POD Automation</h1>
         <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">Facebook Dashboard</p>
@@ -54,8 +86,8 @@
       </div>
     </aside>
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="topbar bg-white/70 dark:bg-[#090d18]/90 backdrop-blur-xl border-gray-200/60 dark:border-slate-800/80 shadow-lg shadow-gray-200/50 dark:shadow-2xl dark:shadow-black/40">
-        <button id="sidebar-toggle" type="button" class="icon-button lg:hidden" aria-label="Open navigation menu">
+      <header class="topbar bg-white/70 dark:bg-[#111111]/90 backdrop-blur-xl border-gray-200/60 dark:border-slate-800/80 shadow-lg shadow-gray-200/50 dark:shadow-2xl dark:shadow-black/40">
+        <button id="sidebar-toggle" type="button" class="icon-button lg:hidden" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
           </svg>
@@ -90,6 +122,19 @@
       <div class="flex justify-end gap-3">
         <button id="confirm-modal-cancel" type="button" class="btn btn-secondary">Cancel</button>
         <button id="confirm-modal-ok" type="button" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="prompt-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="prompt-modal-title" aria-describedby="prompt-modal-message">
+      <h3 id="prompt-modal-title" class="text-lg font-semibold mb-2">Confirmation required</h3>
+      <p id="prompt-modal-message" class="text-sm text-gray-600 dark:text-slate-300 mb-4"></p>
+      <input id="prompt-modal-input" type="text" class="field-input" autocomplete="off" autofocus />
+      <p id="prompt-modal-hint" class="text-xs text-gray-500 dark:text-slate-400 mt-2 mb-4"></p>
+      <div class="flex justify-end gap-3">
+        <button id="prompt-modal-cancel" type="button" class="btn btn-secondary">Cancel</button>
+        <button id="prompt-modal-ok" type="button" class="btn btn-danger">Confirm</button>
       </div>
     </div>
   </div>

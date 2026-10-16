@@ -3,9 +3,11 @@
 import logging
 from datetime import datetime, timezone
 
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.models import PostStatus
 from app.models.post import Post
 from app.services import log_service, post_service
 from app.services.facebook.client import FacebookClient
@@ -29,7 +31,13 @@ def build_message(post: Post) -> str:
 
 
 async def publish_post(db: Session, post_id: int) -> Post:
-    """Publish one draft/scheduled/failed post to the Facebook Page."""
+    """Publish one draft/scheduled/failed post to the Facebook Page.
+
+    Uses an atomic claim (status -> 'publishing') so a post can only be in
+    flight once — across the scheduler tick, manual publish, or multiple
+    processes. This prevents the double-post race where a retry fires after
+    Facebook already accepted a previous attempt.
+    """
     from app.services import settings_service
 
     if settings_service.is_kill_switch_active(db):
@@ -46,21 +54,37 @@ async def publish_post(db: Session, post_id: int) -> Post:
         raise ValueError(f"Post {post_id} not found.")
     if post.status not in _PUBLISHABLE_STATUSES:
         raise ValueError("Only draft, scheduled or failed posts can be published.")
-    post.publish_attempts = (post.publish_attempts or 0) + 1
-    post.last_attempt_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(post)
+    # Validate content BEFORE claiming so an empty post never burns an attempt.
+    message = build_message(post)
+    if not message.strip():
+        raise ValueError("Post has no caption or hashtags to publish.")
 
     settings = get_settings()
     logger.info(
-        "Publishing post %s (attempt %s, dry_run=%s).",
+        "Claiming post %s for publish (dry_run=%s).",
         post_id,
-        post.publish_attempts,
         settings.FACEBOOK_DRY_RUN,
     )
+    now = datetime.now(timezone.utc)
+    claim = db.execute(
+        update(Post)
+        .where(Post.id == post_id, Post.status.in_(_PUBLISHABLE_STATUSES))
+        .values(
+            status=PostStatus.publishing.value,
+            publish_attempts=func.coalesce(Post.publish_attempts, 0) + 1,
+            last_attempt_at=now,
+        )
+    )
+    db.commit()
+    if claim.rowcount != 1:
+        # Another caller (scheduler tick / parallel request) already claimed it.
+        db.rollback()
+        raise ValueError("Post is already being published or is not publishable.")
+    db.refresh(post)
+    logger.info("Publishing post %s (attempt %s).", post_id, post.publish_attempts)
+
     client = FacebookClient()
     try:
-        message = build_message(post)
         if post.image_url:
             result = await client.publish_photo(post.image_url, message)
         else:
@@ -77,6 +101,11 @@ async def publish_post(db: Session, post_id: int) -> Post:
             post_id=post_id,
         )
         logger.warning("Publish of post %s failed: %s", post_id, safe_message)
+        raise
+    except Exception:
+        # Unexpected error after the claim: release the claim so a later
+        # retry can pick it up instead of leaving the post stuck.
+        post_service.mark_post_failed(db, post_id, "Unexpected error during publish.")
         raise
     finally:
         await client.aclose()

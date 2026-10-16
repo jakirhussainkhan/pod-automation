@@ -589,7 +589,7 @@
       profile.href = lead.user_profile_link;
       profile.target = "_blank";
       profile.rel = "noopener";
-      profile.className = "text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline";
+      profile.className = "text-xs text-gray-700 dark:text-slate-200 font-medium underline";
       profile.textContent = "Profile ↗";
       userCell.appendChild(profile);
     }
@@ -867,6 +867,8 @@
       input.min = "0";
       input.step = field.step || "1";
       input.className = "field-input";
+      input.id = "stat-input-" + field.key;
+      label.setAttribute("for", input.id);
       input.value = field.value === null || field.value === undefined ? "" : String(field.value);
       inputs[field.key] = input;
       wrap.appendChild(label);
@@ -878,6 +880,8 @@
     notesLabel.className = "field-label mt-3";
     notesLabel.textContent = "Notes (optional)";
     var notes = document.createElement("textarea");
+    notes.id = "stat-notes";
+    notesLabel.setAttribute("for", notes.id);
     notes.className = "field-input";
     notes.rows = 2;
     notes.value = d.notes || "";
@@ -1195,6 +1199,8 @@
     acctLabel.textContent = "Send as account";
     var acctSelect = document.createElement("select");
     acctSelect.className = "field-input";
+    acctSelect.id = "dm-account-select";
+    acctLabel.setAttribute("for", acctSelect.id);
     acctSelect.setAttribute("aria-label", "Send as account");
     var autoOpt = document.createElement("option");
     autoOpt.value = "";

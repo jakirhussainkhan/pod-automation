@@ -17,6 +17,10 @@ from app.services import backup_service
 
 logger = logging.getLogger("pod-automation")
 
+# Health checks never echo raw exception text to the client (it can leak file
+# paths / connection strings); the full detail goes to the server log instead.
+_GENERIC_ERROR = "check failed (see server logs)"
+
 
 def _db_path() -> Path:
     """Resolve the live SQLite file from DATABASE_URL."""
@@ -40,9 +44,9 @@ def _check_db(db: Session) -> dict:
         size_mb = round(path.stat().st_size / (1024 * 1024), 2) if path.exists() else 0.0
         tables = len(Base.metadata.tables)
         return {"ok": True, "size_mb": size_mb, "table_count": tables}
-    except Exception as exc:
+    except Exception:
         logger.exception("Health DB check failed.")
-        return {"ok": False, "error": str(exc)[:200]}
+        return {"ok": False, "error": _GENERIC_ERROR}
 
 
 def _check_queue(db: Session) -> dict:
@@ -72,9 +76,9 @@ def _check_queue(db: Session) -> dict:
             "pending_leads": int(pending_leads),
             "queued_posts": int(queued_posts),
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Health queue check failed.")
-        return {"ok": False, "error": str(exc)[:200]}
+        return {"ok": False, "error": _GENERIC_ERROR}
 
 
 def _check_backup(db: Session) -> dict:
@@ -90,9 +94,9 @@ def _check_backup(db: Session) -> dict:
             "last_backup_at": latest.isoformat(),
             "age_hours": age_hours,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Health backup check failed.")
-        return {"ok": False, "error": str(exc)[:200]}
+        return {"ok": False, "error": _GENERIC_ERROR}
 
 
 def _check_disk(db: Session) -> dict:
@@ -112,9 +116,9 @@ def _check_disk(db: Session) -> dict:
             "backups_mb": round(total / (1024 * 1024), 2),
             "logs_rows": int(log_rows),
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Health disk check failed.")
-        return {"ok": False, "error": str(exc)[:200]}
+        return {"ok": False, "error": _GENERIC_ERROR}
 
 
 def _token_days_left(db: Session) -> tuple[bool, Optional[str], Optional[str], Optional[int]]:
@@ -212,9 +216,9 @@ async def get_system_health(db: Session) -> dict:
             "primary_provider": get_settings().AI_PROVIDER,
             "last_success_at": last_ok.created_at.isoformat() if last_ok and last_ok.created_at else None,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Health AI check failed.")
-        ai = {"ok": False, "error": str(exc)[:200]}
+        ai = {"ok": False, "error": _GENERIC_ERROR}
 
     return {
         "db": _check_db(db),
@@ -266,6 +270,6 @@ def _check_accounts(db: Session) -> dict:
             "restricted_now": restricted_now,
             "next_available_at": next_available,
         }
-    except Exception as exc:
+    except Exception:
         logger.exception("Health accounts check failed.")
-        return {"ok": False, "error": str(exc)[:200]}
+        return {"ok": False, "error": _GENERIC_ERROR}

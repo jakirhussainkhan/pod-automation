@@ -8,6 +8,7 @@
   var pageIds = [];
   var productNames = {};
   var facebookStatus = null;
+  var loadSeq = 0;
 
   /**
    * Load the Facebook connection status once for confirm dialogs.
@@ -140,9 +141,16 @@
     head.className = "flex items-start gap-3";
     var selectBox = document.createElement("input");
     selectBox.type = "checkbox";
-    selectBox.className = "mt-1 h-4 w-4 flex-shrink-0";
+    selectBox.className = "post-select mt-1 h-4 w-4 flex-shrink-0";
+    selectBox.dataset.postId = String(post.id);
     selectBox.checked = !!selected[post.id];
-    selectBox.setAttribute("aria-label", "Select post " + post.id);
+    selectBox.setAttribute(
+      "aria-label",
+      "Select " +
+        (post.product_id && productNames[post.product_id]
+          ? productNames[post.product_id]
+          : "post " + post.id)
+    );
     selectBox.addEventListener("change", function () {
       if (selectBox.checked) {
         selected[post.id] = true;
@@ -182,7 +190,7 @@
     if (post.caption && post.caption.length > 160) {
       var more = document.createElement("button");
       more.type = "button";
-      more.className = "text-xs text-blue-600 dark:text-blue-400 font-medium hover:underline mt-1";
+      more.className = "text-xs text-gray-700 dark:text-slate-200 font-medium underline mt-1";
       more.textContent = "Read more";
       more.setAttribute("aria-expanded", "false");
       more.addEventListener("click", function () {
@@ -272,6 +280,12 @@
       return;
     }
     var ids = Object.keys(selected);
+    // Hide the whole bar when there are no posts in the current scope, so an
+    // empty list doesn't show a useless "0 selected / Delete Selected" row.
+    if (!state.total) {
+      bar.classList.add("hidden");
+      return;
+    }
     var scope = state.status
       ? state.status.charAt(0).toUpperCase() + state.status.slice(1)
       : "Posts";
@@ -375,6 +389,7 @@
     errorBox.classList.add("hidden");
     empty.classList.add("hidden");
     list.innerHTML = "";
+    var mySeq = ++loadSeq;
     var params = new URLSearchParams();
     params.set("skip", String(state.skip));
     params.set("limit", String(PAGE_SIZE));
@@ -386,6 +401,9 @@
     }
     try {
       var data = await window.apiFetch("/api/posts?" + params.toString());
+      if (mySeq !== loadSeq) {
+        return;
+      }
       state.total = data.total;
       loading.classList.add("hidden");
       pageIds = data.items.map(function (post) {
@@ -408,6 +426,9 @@
         }
       );
     } catch (err) {
+      if (mySeq !== loadSeq) {
+        return;
+      }
       loading.classList.add("hidden");
       document.getElementById("posts-error-text").textContent =
         "Could not load posts: " + err.message;
@@ -429,6 +450,14 @@
       var data = await window.apiFetch("/api/products?skip=0&limit=100");
       var filter = document.getElementById("post-product-filter");
       var select = document.getElementById("post-product");
+      // Reset to the placeholder option first so repeated calls (after each
+      // mutation) don't stack duplicate <option> entries.
+      while (filter.options.length > 1) {
+        filter.remove(1);
+      }
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
       data.items.forEach(function (product) {
         productNames[product.id] = product.title;
         var opt1 = document.createElement("option");
@@ -565,7 +594,13 @@
       error.classList.remove("hidden");
       return;
     }
-    var iso = new Date(raw).toISOString();
+    var parsed = new Date(raw);
+    if (isNaN(parsed.getTime())) {
+      error.textContent = "That date/time isn't valid.";
+      error.classList.remove("hidden");
+      return;
+    }
+    var iso = parsed.toISOString();
     var postId = document.getElementById("schedule-post-id").value;
     window.setButtonLoading(btn, true, "Scheduling\u2026");
     try {
@@ -594,6 +629,13 @@
     var btn = document.getElementById("regenerate-save");
     var postId = document.getElementById("regenerate-post-id").value;
     var tone = document.getElementById("regenerate-tone").value;
+    var confirmed = await window.confirmDialog(
+      "Regenerate this caption? The current caption will be replaced.",
+      { confirmText: "Regenerate" }
+    );
+    if (!confirmed) {
+      return;
+    }
     window.setButtonLoading(btn, true, "Regenerating\u2026");
     try {
       await window.apiFetch("/api/ai/posts/" + postId + "/regenerate-caption", {
@@ -713,7 +755,10 @@
       }
       window.setButtonLoading(btn, true, "Deleting\u2026");
       try {
-        await window.apiFetch("/api/posts/" + id, { method: "DELETE" });
+        await window.apiFetch("/api/posts/" + id, {
+          method: "DELETE",
+          headers: { "X-Confirm-Delete": "true" }
+        });
         delete selected[id];
         window.toast("Post deleted.", "success");
         loadPosts();
@@ -762,7 +807,12 @@
           delete selected[id];
         }
       });
-      loadPosts();
+      // Update the visible checkboxes in place (no full refetch -> no flicker
+      // and no loss of scroll/focus).
+      document.querySelectorAll("#posts-list .post-select").forEach(function (box) {
+        box.checked = checked;
+      });
+      renderBulkBar();
     });
     document.getElementById("posts-bulk-delete").addEventListener("click", function (event) {
       onBulkDelete(event.currentTarget);

@@ -50,7 +50,7 @@ class Automation:
         if self.running:
             return
         self._stopping = False
-        self._interval_seconds = max(10, get_settings().SCHEDULER_INTERVAL_SECONDS)
+        self._interval_seconds = get_settings().SCHEDULER_INTERVAL_SECONDS
         self._task = asyncio.create_task(self._loop(), name="automation")
         logger.info(
             "Automation started with interval %s seconds.", self._interval_seconds
@@ -93,7 +93,7 @@ class Automation:
                 raise
             except Exception:
                 logger.exception("Automation tick failed; continuing.")
-            interval = max(10, get_settings().SCHEDULER_INTERVAL_SECONDS)
+            interval = get_settings().SCHEDULER_INTERVAL_SECONDS
             self._interval_seconds = interval
             for _ in range(interval):
                 if self._stopping:
@@ -104,9 +104,10 @@ class Automation:
         """Perform one publishing tick under the run lock."""
         async with self._lock:
             settings = get_settings()
-            db = SessionLocal()
+            # --- Control phase: short-lived session, no awaits while open ---
+            control = SessionLocal()
             try:
-                posting = settings_service.get_setting(db, "posting_enabled", "false")
+                posting = settings_service.get_setting(control, "posting_enabled", "false")
                 if str(posting).lower() != "true":
                     result: dict = {
                         "published": 0,
@@ -116,11 +117,11 @@ class Automation:
                     }
                     self._record_run(result)
                     return result
-                if settings_service.is_kill_switch_active(db):
+                if settings_service.is_kill_switch_active(control):
                     # Layer 1: scheduler refuses to start work while stopped.
                     # Layer 2 (publisher.publish_post) blocks direct publishes too.
                     log_service.add_log(
-                        db,
+                        control,
                         "kill_switch_blocked",
                         "Automation tick blocked: emergency stop is active.",
                         level="WARNING",
@@ -133,47 +134,58 @@ class Automation:
                     }
                     self._record_run(result)
                     return result
-                self._run_maintenance(db)
+                self._run_maintenance(control)
                 batch = max(1, settings.SCHEDULER_BATCH_SIZE)
-                max_attempts = max(1, settings.PUBLISH_MAX_ATTEMPTS)
-                due = post_service.get_due_scheduled_posts(db, _utcnow())[:batch]
-                published = 0
-                failed = 0
-                skipped = 0
-                for index, post in enumerate(due):
-                    if post.id in self._in_flight:
-                        skipped += 1
-                        continue
-                    if post.status == "failed" and (post.publish_attempts or 0) >= max_attempts:
-                        skipped += 1
-                        continue
-                    self._in_flight.add(post.id)
-                    try:
-                        await publish_post(db, post.id)
-                        published += 1
-                    except (FacebookError, ValueError) as exc:
-                        failed += 1
-                        logger.warning(
-                            "Automation publish of post %s failed: %s.", post.id, exc
-                        )
-                    except Exception:
-                        failed += 1
-                        logger.exception(
-                            "Automation publish of post %s crashed.", post.id
-                        )
-                    finally:
-                        self._in_flight.discard(post.id)
-                    if index < len(due) - 1:
-                        await asyncio.sleep(2)
-                result = {
-                    "published": published,
-                    "failed": failed,
-                    "skipped": skipped,
-                }
-                self._record_run(result)
-                return result
+                # Release any post left claimed by an interrupted publish.
+                reclaimed = post_service.reclaim_stale_publishing(control)
+                if reclaimed:
+                    logger.warning("Reclaimed %s stale publishing post(s).", reclaimed)
+                due_ids = [
+                    post.id
+                    for post in post_service.get_due_scheduled_posts(
+                        control, _utcnow(), limit=batch
+                    )
+                ]
             finally:
-                db.close()
+                control.close()
+
+            # --- Publish phase: a fresh session per post, closed before awaits ---
+            published = 0
+            failed = 0
+            skipped = 0
+            for index, post_id in enumerate(due_ids):
+                if self._stopping:
+                    break
+                if post_id in self._in_flight:
+                    skipped += 1
+                    continue
+                self._in_flight.add(post_id)
+                db = SessionLocal()
+                try:
+                    await publish_post(db, post_id)
+                    published += 1
+                except (FacebookError, ValueError) as exc:
+                    failed += 1
+                    logger.warning(
+                        "Automation publish of post %s failed: %s.", post_id, exc
+                    )
+                except Exception:
+                    failed += 1
+                    logger.exception(
+                        "Automation publish of post %s crashed.", post_id
+                    )
+                finally:
+                    self._in_flight.discard(post_id)
+                    db.close()
+                if index < len(due_ids) - 1:
+                    await asyncio.sleep(2)
+            result = {
+                "published": published,
+                "failed": failed,
+                "skipped": skipped,
+            }
+            self._record_run(result)
+            return result
 
     def _run_maintenance(self, db: Session) -> None:
         """Hourly backup check + daily log prune. Best-effort, never fatal."""

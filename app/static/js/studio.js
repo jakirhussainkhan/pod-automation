@@ -2,7 +2,8 @@
 (function () {
   "use strict";
 
-  var state = { tone: "friendly", lastAction: null };
+  var state = { tone: "friendly", lastRun: null };
+  var genSeq = 0;
 
   /**
    * Read the selected product id.
@@ -135,6 +136,7 @@
    */
   async function runAction(btn, fn) {
     var loading = document.getElementById("studio-loading");
+    var mySeq = ++genSeq;
     document.getElementById("studio-error").classList.add("hidden");
     loading.classList.remove("hidden");
     // Remember the last action so the Retry button can re-run it.
@@ -142,12 +144,24 @@
     window.setButtonLoading(btn, true, "Generating\u2026");
     try {
       var items = await fn();
-      renderResults(items);
+      if (mySeq !== genSeq) {
+        return;
+      }
+      // A null result means "handled elsewhere" (e.g. group panel) — leave the
+      // studio results/empty state untouched instead of flashing "no results".
+      if (items !== null) {
+        renderResults(items);
+      }
     } catch (err) {
+      if (mySeq !== genSeq) {
+        return;
+      }
       showError(err);
     } finally {
       window.setButtonLoading(btn, false);
-      loading.classList.add("hidden");
+      if (mySeq === genSeq) {
+        loading.classList.add("hidden");
+      }
     }
   }
 
@@ -421,6 +435,7 @@
         document.querySelectorAll("#studio-tones .pill"),
         function (el) {
           el.classList.toggle("pill-active", el === pill);
+          el.setAttribute("aria-pressed", el === pill ? "true" : "false");
         }
       );
     });
@@ -546,7 +561,7 @@
                 ? "Comment prompt: " + content.call_to_action
                 : "";
               box.scrollIntoView({ behavior: "smooth", block: "nearest" });
-              return [];
+              return null;
             });
         });
       });
@@ -587,7 +602,7 @@
             .then(function (items) {
               window.toast("Daily batch ready: " + items.length + " posts queued.", "success");
               loadQueue();
-              return [];
+              return null;
             });
         });
       });

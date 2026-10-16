@@ -1,0 +1,24 @@
+[project]
+name = "pod-automation"
+version = "0.1.0"
+description = "POD Facebook Automation Dashboard (FastAPI + SQLite + Jinja2)"
+readme = "README.md"
+requires-python = ">=3.11"
+# Runtime dependencies live in requirements.txt (single source of truth for
+# exact, reproducible pins). This table only declares project metadata.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [".venv", "data", "logs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+# E501: the codebase intentionally uses longer lines (not reformatted).
+# E402: some modules import after a module-level logger (existing pattern).
+# F821: SQLAlchemy string forward-refs (Mapped["Product"]) are not resolvable.
+ignore = ["E501", "E402", "F821"]

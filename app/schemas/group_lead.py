@@ -5,7 +5,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 LEAD_STATUSES: tuple[str, ...] = ("unsent", "step1_sent", "step2_sent", "replied", "converted", "follow_up_sent")
 LEAD_INTENTS: tuple[str, ...] = ("high", "medium", "low")
 REPLY_STATES: tuple[str, ...] = ("unknown", "replied", "no_reply", "bounced")

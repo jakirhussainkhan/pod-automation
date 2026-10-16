@@ -1,6 +1,7 @@
 """System operations router: health, backups, AI usage, token, kill switch."""
 
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.config import RESTORE_CONFIRM_TEXT
 from app.database.session import get_db
 from app.routers.deps import require_destructive_confirmation
 from app.services import (
@@ -24,10 +26,8 @@ logger = logging.getLogger("pod-automation")
 
 router: APIRouter = APIRouter(prefix="/api/system", tags=["system"])
 
-_RESTORE_CONFIRM_TEXT = "RESTORE BACKUP"
-"""Exact confirmation string required for backup restores."""
-
 _health_cache: dict = {"at": 0.0, "payload": None}
+_health_lock = threading.Lock()
 _HEALTH_TTL_SECONDS = 30.0
 
 
@@ -61,11 +61,13 @@ def _rate_limited(last: float, window: float) -> bool:
 async def system_health(db: Session = Depends(get_db)) -> dict:
     """Return the cached-or-fresh system health snapshot."""
     now = time.monotonic()
-    if _health_cache["payload"] is not None and (now - _health_cache["at"]) < _HEALTH_TTL_SECONDS:
-        return _health_cache["payload"]
+    with _health_lock:
+        if _health_cache["payload"] is not None and (now - _health_cache["at"]) < _HEALTH_TTL_SECONDS:
+            return _health_cache["payload"]
     payload = await health_service.get_system_health(db)
-    _health_cache["at"] = now
-    _health_cache["payload"] = payload
+    with _health_lock:
+        _health_cache["at"] = now
+        _health_cache["payload"] = payload
     return payload
 
 
@@ -82,10 +84,8 @@ def run_backup(db: Session = Depends(get_db)) -> dict:
     global _last_manual_backup_at
     if _rate_limited(_last_manual_backup_at, 60.0):
         raise HTTPException(status_code=429, detail="Backup already ran recently — wait a minute.")
-    try:
-        result = backup_service.run_backup(db, trigger="manual")
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+    # Service-layer ValueError is mapped to HTTP 400 by the global handler.
+    result = backup_service.run_backup(db, trigger="manual")
     _last_manual_backup_at = time.monotonic()
     return result
 
@@ -98,10 +98,17 @@ def download_backup(backup_id: int, db: Session = Depends(get_db)) -> FileRespon
     row = db.get(DbBackup, backup_id)
     if row is None:
         raise HTTPException(status_code=404, detail=f"Backup {backup_id} not found.")
-    if not Path(row.file_path).exists():
+    # Confine downloads to the backups directory so a tampered/legacy file_path
+    # can never stream an arbitrary file off the host.
+    backups_dir = backup_service._backup_dir().resolve()
+    try:
+        resolved = Path(row.file_path).resolve()
+    except OSError:
+        raise HTTPException(status_code=404, detail="Backup file is missing from disk.")
+    if not resolved.is_relative_to(backups_dir) or not resolved.exists():
         raise HTTPException(status_code=404, detail="Backup file is missing from disk.")
     return FileResponse(
-        path=row.file_path,
+        path=str(resolved),
         filename=row.filename,
         media_type="application/x-sqlite3",
     )
@@ -130,17 +137,15 @@ def restore_backup(
 ) -> dict:
     """Restore a backup (1 per 10 min)."""
     global _last_restore_at
-    if (data.confirmation or "").strip() != _RESTORE_CONFIRM_TEXT:
+    if (data.confirmation or "").strip() != RESTORE_CONFIRM_TEXT:
         raise HTTPException(
             status_code=422,
-            detail=f'Restore requires confirmation="{_RESTORE_CONFIRM_TEXT}".',
+            detail=f'Restore requires confirmation="{RESTORE_CONFIRM_TEXT}".',
         )
     if _rate_limited(_last_restore_at, 600.0):
         raise HTTPException(status_code=429, detail="Restore ran recently — wait 10 minutes.")
-    try:
-        result = backup_service.restore_backup(backup_id, db)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+    # Service-layer ValueError is mapped to HTTP 400 by the global handler.
+    result = backup_service.restore_backup(backup_id, db)
     _last_restore_at = time.monotonic()
     return result
 

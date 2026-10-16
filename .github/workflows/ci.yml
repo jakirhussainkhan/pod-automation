@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Byte-compile backend
+        run: python -m compileall -q app
+
+      - name: Lint (ruff)
+        run: ruff check app
+
+      - name: JavaScript syntax check
+        run: for f in app/static/js/*.js; do node --check "$f"; done
+
+      - name: Run tests
+        run: pytest

@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
 from app.models import PostStatus
@@ -137,16 +137,52 @@ def mark_post_failed(db: Session, post_id: int, error_message: str) -> Optional[
     return post
 
 
-def get_due_scheduled_posts(db: Session, now: datetime) -> list[Post]:
+def get_due_scheduled_posts(
+    db: Session, now: datetime, limit: Optional[int] = None
+) -> list[Post]:
     """Return scheduled posts whose scheduled_at is at or before now."""
-    return (
+    query = (
         db.query(Post)
         .filter(Post.status == PostStatus.scheduled.value)
         .filter(Post.scheduled_at.is_not(None))
         .filter(Post.scheduled_at <= now)
         .order_by(Post.scheduled_at.asc())
-        .all()
     )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+# A publish left in 'publishing' longer than this is presumed interrupted
+# (process crash / hard timeout) and is released back to 'failed'.
+_STALE_PUBLISHING_SECONDS = 900
+
+
+def reclaim_stale_publishing(
+    db: Session, stale_seconds: int = _STALE_PUBLISHING_SECONDS
+) -> int:
+    """Release posts stuck in 'publishing' back to 'failed'.
+
+    Prevents an interrupted publish (crash or timeout between the claim and the
+    final status write) from leaving a post claimed forever. The post becomes
+    retryable, subject to PUBLISH_MAX_ATTEMPTS. Returns the count reclaimed.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=stale_seconds)
+    result = db.execute(
+        update(Post)
+        .where(
+            Post.status == PostStatus.publishing.value,
+            (Post.last_attempt_at.is_(None)) | (Post.last_attempt_at < cutoff),
+        )
+        .values(
+            status=PostStatus.failed.value,
+            error_message=(
+                "Publishing was interrupted; verify on Facebook before retrying."
+            ),
+        )
+    )
+    db.commit()
+    return int(result.rowcount or 0)
 
 
 def count_posts(

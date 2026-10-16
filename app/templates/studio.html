@@ -16,11 +16,11 @@
       <div>
         <span class="field-label" id="studio-tone-label">Tone</span>
         <div id="studio-tones" class="flex flex-wrap gap-2" role="group" aria-labelledby="studio-tone-label">
-          <button type="button" class="pill pill-active" data-tone="friendly">friendly</button>
-          <button type="button" class="pill" data-tone="funny">funny</button>
-          <button type="button" class="pill" data-tone="urgent">urgent</button>
-          <button type="button" class="pill" data-tone="inspirational">inspirational</button>
-          <button type="button" class="pill" data-tone="professional">professional</button>
+          <button type="button" class="pill pill-active" data-tone="friendly" aria-pressed="true">friendly</button>
+          <button type="button" class="pill" data-tone="funny" aria-pressed="false">funny</button>
+          <button type="button" class="pill" data-tone="urgent" aria-pressed="false">urgent</button>
+          <button type="button" class="pill" data-tone="inspirational" aria-pressed="false">inspirational</button>
+          <button type="button" class="pill" data-tone="professional" aria-pressed="false">professional</button>
         </div>
       </div>
       <div>
@@ -96,7 +96,7 @@
 
     <hr class="my-5 border-gray-200 dark:border-slate-700" />
     <h3 class="text-lg font-semibold mb-1 text-gray-900 dark:text-slate-100">Group Post Queue</h3>
-    <p class="text-xs text-gray-500 dark:text-slate-400 mb-3"><span id="queue-counts">0 queued · 0 posted</span></p>
+    <p class="text-xs text-gray-500 dark:text-slate-400 mb-3" role="status" aria-live="polite"><span id="queue-counts">0 queued · 0 posted</span></p>
     <div id="queue-list" class="space-y-3"></div>
     <div id="queue-empty" class="text-xs text-gray-500 dark:text-slate-400 py-3 text-center">Queue is empty — generate a single post or the daily batch of 5.</div>
   </div>

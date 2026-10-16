@@ -52,6 +52,8 @@ def _ensure_table_columns(connection, dialect, table_name: str, model) -> None:
             f"{_quote_ident(column.name)} {column_type}"
         )
         if not column.nullable:
+            from sqlalchemy import Date, DateTime, Time
+
             default = None
             if column.default is not None and not callable(
                 getattr(column.default, "arg", None)
@@ -60,7 +62,17 @@ def _ensure_table_columns(connection, dialect, table_name: str, model) -> None:
             elif column.server_default is not None:
                 default = str(column.server_default.arg)
             if default is None:
-                default = 0
+                # A Python-callable default (e.g. datetime.now) can't be inlined
+                # into DDL; a timestamp column must fall back to SQLite's
+                # CURRENT_TIMESTAMP instead of the literal 0.
+                default = (
+                    "CURRENT_TIMESTAMP"
+                    if isinstance(column.type, (DateTime, Date, Time))
+                    else 0
+                )
+            if str(default).strip().upper() == "CURRENT_TIMESTAMP":
+                pending.append(clause + " NOT NULL DEFAULT CURRENT_TIMESTAMP")
+                continue
             try:
                 default_num = float(default)
                 default_sql = (
@@ -87,8 +99,10 @@ def _ensure_table_columns(connection, dialect, table_name: str, model) -> None:
 
 def ensure_schema() -> None:
     """Migrate existing SQLite databases idempotently (incl. is_demo flags)."""
-    from app.database.session import engine
+    from sqlalchemy import inspect as sa_inspect
+
     from app.database.base import Base
+    from app.database.session import engine
     from app.models.fb_account import FbAccount
     from app.models.group_lead import GroupLead
     from app.models.group_post_queue import GroupPostQueue
@@ -96,7 +110,6 @@ def ensure_schema() -> None:
     from app.models.post import Post
     from app.models.product import Product
     from app.models.system import AiUsage, DbBackup
-    from sqlalchemy import inspect as sa_inspect
 
     # Create group-engine tables when opening a database made before them.
     Base.metadata.tables["group_leads"].create(bind=engine, checkfirst=True)
@@ -312,9 +325,9 @@ def ensure_schema() -> None:
 
 def init_db() -> None:
     """Create all database tables from model metadata."""
+    import app.models  # noqa: F401  -- ensure all models are registered
     from app.database.base import Base
     from app.database.session import engine
-    import app.models  # noqa: F401  -- ensure all models are registered
 
     Base.metadata.create_all(bind=engine)
     ensure_schema()

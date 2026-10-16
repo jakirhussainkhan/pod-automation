@@ -10,7 +10,13 @@ from app.config import BASE_DIR, get_settings
 def setup_logging() -> logging.Logger:
     """Configure root logging with console and rotating file handlers."""
     settings = get_settings()
-    log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+    level_name = (settings.LOG_LEVEL or "").strip().upper()
+    log_level = getattr(logging, level_name, None)
+    if not isinstance(log_level, int):
+        raise ValueError(
+            f"Invalid LOG_LEVEL {settings.LOG_LEVEL!r}; expected one of "
+            "DEBUG, INFO, WARNING, ERROR, CRITICAL."
+        )
 
     logs_dir: Path = BASE_DIR / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)

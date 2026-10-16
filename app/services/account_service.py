@@ -302,6 +302,7 @@ def list_accounts(
     d30_converted, d30_revenue) via conditional sums — still one query.
     """
     from datetime import timedelta as _td
+
     from sqlalchemy import case
 
     cutoff = None

@@ -3,7 +3,7 @@
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, Float, Integer, String, Text
+from sqlalchemy import Date, DateTime, Float, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base

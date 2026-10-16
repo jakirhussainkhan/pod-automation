@@ -74,17 +74,17 @@ def bulk_delete_endpoint(
             status_code=422,
             detail=f"Too many ids (max {_MAX_BULK_IDS}).",
         )
-    # Snapshot before deletion so the bulk entry stays restorable.
-    if data.delete_all:
-        from app.models.post import Post as _Post
+    # Snapshot before deletion so the bulk entry stays restorable. One query for
+    # the id branch (no per-id get_post round-trips / N+1).
+    from app.models.post import Post as _Post
 
+    if data.delete_all:
         query = db.query(_Post)
         if data.status:
             query = query.filter(_Post.status == data.status)
         targets = query.all()
     elif unique_ids:
-        targets = [post_service.get_post(db, pid) for pid in unique_ids]
-        targets = [item for item in targets if item is not None]
+        targets = db.query(_Post).filter(_Post.id.in_(unique_ids)).all()
     else:
         targets = []
     snapshot = {"posts": [log_service.post_to_dict(post) for post in targets]}
@@ -160,7 +160,11 @@ def update_post_endpoint(
 
 
 @router.delete("/{post_id}", status_code=204)
-def delete_post_endpoint(post_id: int, db: Session = Depends(get_db)) -> Response:
+def delete_post_endpoint(
+    post_id: int,
+    db: Session = Depends(get_db),
+    _confirmed: None = Depends(require_destructive_confirmation),
+) -> Response:
     """Delete a post and log the event with a restorable snapshot."""
     post = post_service.get_post(db, post_id)
     if post is None:
